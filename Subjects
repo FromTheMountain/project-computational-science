@@ -30,6 +30,7 @@ E.g. question to look at: Experiment design a building with minimal material acc
 Can use particle-based stochastic simulation algorithms. Can even use JS
 Could be used to model frost / cristals in python : https://www.youtube.com/watch?v=BD6s_gCAiAU (using random walks to model Brownian motion and diffusion limited aggregation). 
 
+# for 1 and 3. can use https://github.com/gollygang/ready
 ----
 
 4. World simulation:
