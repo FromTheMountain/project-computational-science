@@ -15,11 +15,11 @@ https://www.youtube.com/watch?v=VdG4gUTowXc
  
 - World simulation:
 https://www.youtube.com/c/PrimerLearning/videos
-https://www.youtube.com/watch?v=Ei2ETn82Je0 
+https://www.youtube.com/watch?v=Ei2ETn82Je0
+dit lijkt me ontzettend breed, maar ik heb wel iets interessants bedacht n.a.v. de Primer video over foraging. Op deze pagina https://en.wikipedia.org/wiki/Optimal_foraging_theory wordt het "Optimal diet model" omschreven, in het kort: hoe kiest een roofdier of hij achter een prooi aangaat wanneer hij deze tegenkomt. We kunnen een model maken met een groot aantal paremters, b.v. hoe vaak bepaalde prooien voorkomen, hoe groot de kans is dat het roofdier een bepaalde prooi te pakken krijgt, hoe lang het duurt om te jagen/eten, etc. en dan verschillende hypotheses testen voor het optimale gedrag van het roofdier. Wat fijn is aan deze optie is dat we heel simpel kunnen beginnen, en net zolang features toe kunnen blijven voegen als we maar willen.
 
+- Molecular dynamics/computational chemistry:
+we zouden de simulatie in https://youtu.be/3R05Cf7sIVU na kunnen bootsen met constante temperatuur, en ons dan afvragen voor welke temperaturen er crystallizering plaatsvindt en voor welke niet, en voor de temperaturen waar welk sprake is van crystallizering kunnen we ons afvragen hoe snel dat gebeurt. Iets concreter: we zouden voor verschillende waarden van de temperatuur een plotje kunnen maken van de gemiddelde kinetische energie als functie van de tijd. Voor lage temperaturen zou je verwachten dat dat convergeert naar 0, voor hoge temperaturen waarschijnlijk niet (maar ik weet niet precies wat er wel zou gebeuren). Deze simulatie is gemaakt met behulp van Verlet Integration, Lennard-Jones potential, Nosé–Hoover thermostat, en na even op de Wikipedia pagina's daarvan te hebben gekeken denk ik dat we die algoritmes prima kunnen implementeren.
 
-Sneeuw vlokken
-
-
-
-
+- Snowflakes:
+sneeuwflok simulatie blijkt nog best lastig te zijn, omdat sneeuwvlokken vaak bestaan uit grofweg 10^19 (10 quintillion) moleculen (zie Wikipedia) en kleine verschillen in de omgeving grote verschillen in de vorm van een sneeuwvlok kunnen betekenen. Desalniettemin is het een paar wiskundigen wel gelukt in 2012: https://arxiv.org/pdf/1202.1272.pdf, zie ook https://www.scientificamerican.com/article/how-do-snowflakes-form/. Ziet er op het eerste gezicht wel uit als vrij zware wiskunde, en ik weet ook niet direct een goede onderzoeksvraag/hypothese te bedenken. Het SA artikel refereert ook aan een artikel uit 2009 (https://journals.aps.org/pre/abstract/10.1103/PhysRevE.79.011601), daar zouden we ook naar kunnen kijken maar het feit dat het een 3D model is vind ik wel een beetje verontrustend.
