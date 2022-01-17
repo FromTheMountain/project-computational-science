@@ -7,7 +7,7 @@ import time
 # Large values for NORMAL_DIST_MEAN (>= 0.5, more or less) cause the
 # distribution function to explode; this behaviour does not show up with
 # smaller values.
-NORMAL_DIST_MEAN = 0.01
+NORMAL_DIST_STDDEV = 0.3
 
 # Model
 ITERATIONS = 200
@@ -38,7 +38,7 @@ class LBM:
     """
     def run(self):
         f = np.ones((LATTICE_WIDTH,LATTICE_HEIGHT,Q))
-        f += NORMAL_DIST_MEAN * np.random.randn(LATTICE_WIDTH,LATTICE_HEIGHT,Q)
+        f += NORMAL_DIST_STDDEV * np.random.randn(LATTICE_WIDTH,LATTICE_HEIGHT,Q)
 
         for _ in range(ITERATIONS):
             f, rho, ux, uy = LBM.lbm_iteration(f)
@@ -82,6 +82,9 @@ class LBM:
 
         # equilibrium
         f_eq = LBM.get_equilibrium(rho, ux, uy)
+
+        # Check stability condition
+        assert np.min(f_eq) >= 0, "Simulation violated stability condition"
 
         # collision
         f = f * (1 - (DELTA_T / TAU)) + (DELTA_T / TAU) * f_eq
