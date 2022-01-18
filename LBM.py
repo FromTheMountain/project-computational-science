@@ -10,7 +10,7 @@ import time
 NORMAL_DIST_STDDEV = 0.3
 
 # Model
-ITERATIONS = 200
+ITERATIONS = 500
 
 # LBM parameters
 c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
@@ -22,8 +22,8 @@ TAU = 3*viscosity + 0.5
 DELTA_T = 1
 DELTA_X = 1
 NUM_LOOPS = 3
-LATTICE_WIDTH = 50
-LATTICE_HEIGHT = 50
+LATTICE_WIDTH = 100
+LATTICE_HEIGHT = 100
 Q = 9
 cssq = (1/3) * (DELTA_X / DELTA_T)**2
 
@@ -104,10 +104,10 @@ def render_lbm_model(model, save=False):
                     cmap=plt.get_cmap("Greys"))
 
     def animate(i):
-        ax.set_title(i)
+        ax.set_title(f"i={i}")
         img.set_data(model.rho_snapshots[i])
 
-    anim = FuncAnimation(fig, animate, interval=10, frames=len(model.rho_snapshots) - 1,
+    anim = FuncAnimation(fig, animate, interval=10, frames=len(model.rho_snapshots),
                             repeat=False)
 
     plt.show()
