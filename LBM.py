@@ -1,134 +1,124 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+import time
 
-NUM_LOOPS = 3
-LATTICE_WIDTH = 200
-LATTICE_HEIGHT = 200
+# The initial distribution function takes values from a normal distribution.
+# Large values for NORMAL_DIST_MEAN (>= 0.5, more or less) cause the
+# distribution function to explode; this behaviour does not show up with
+# smaller values.
+NORMAL_DIST_STDDEV = 0.3
+
+# Model
+ITERATIONS = 200
+
+# LBM parameters
 c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
               (-1, 1), (-1, -1), (1, -1)])
 w = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36])
 
-# Some alternative velocity sets for testing:
-
-# c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1)])
-# w = np.array([4/9, 1/9, 1/9, 1/9, 1/9])
-
-# c = np.array([(0, 0), (1, 0)])
-# w = np.array([4/9, 1/9])
-
-NUM_VELOCITIES = len(c)
-cssq = 1/3
-
-# delta_t was chosen to be 1
-# omega was taken as defined in 03_karman_vortex.py
-
-viscosity = 0.02
-tau = 3*viscosity + 0.5
+viscosity = 0.01
+TAU = 3*viscosity + 0.5
+DELTA_T = 1
+DELTA_X = 1
+NUM_LOOPS = 3
+LATTICE_WIDTH = 50
+LATTICE_HEIGHT = 50
+Q = 9
+cssq = (1/3) * (DELTA_X / DELTA_T)**2
 
 
-def moment_update(f):
-    rho = np.sum(f, axis=2)
-    u = np.einsum('xyk,kc->cxy', f, c) / rho
-    return rho, u
+class LBM:
+    def __init__(self):
+        self.rho_snapshots = []
+        self.ux_snapshots = []
+        self.uy_snapshots = []
+
+    """Initialise and run the simulation.
+    """
+    def run(self):
+        f = np.ones((LATTICE_WIDTH,LATTICE_HEIGHT,Q))
+        f += NORMAL_DIST_STDDEV * np.random.randn(LATTICE_WIDTH,LATTICE_HEIGHT,Q)
+
+        for _ in range(ITERATIONS):
+            f, rho, ux, uy = LBM.lbm_iteration(f)
+
+            self.rho_snapshots.append(rho)
+            self.ux_snapshots.append(ux)
+            self.uy_snapshots.append(uy)
+
+    """Update the rho and velocity values of each grid position.
+    """
+    def moment_update(f):
+        rho = np.sum(f, 2)
+
+        ux = np.sum(c[:,0] * f, axis=2) / rho
+        uy = np.sum(c[:,1] * f, axis=2) / rho
+
+        return rho, ux, uy
+
+    """Calculate the equalibrium values of the grid.
+    """
+    def get_equilibrium(rho, ux, uy):
+        udotu = ux * ux + uy * uy
+
+        udotc = np.zeros([LATTICE_WIDTH, LATTICE_HEIGHT, Q])
+        for i in range(Q):
+            udotc[:,:,i] = ux * c[i,0] + uy * c[i,1]
+
+        f_eq = np.zeros((LATTICE_WIDTH, LATTICE_HEIGHT, 9), dtype=float)
+
+        for i in range(Q):
+            f_eq[:,:,i] = w[i] * rho * (1 + udotc[:,:,i] / cssq +
+                (udotc[:,:,i])**2 / (2 * cssq**2) - udotu / (2 * cssq))
+
+        return f_eq
+
+    """Perform an iteration of the Lattice-Boltzmann method.
+    """
+    def lbm_iteration(f):
+        # moment update
+        rho, ux, uy = LBM.moment_update(f)
+
+        # equilibrium
+        f_eq = LBM.get_equilibrium(rho, ux, uy)
+
+        # Check stability condition
+        assert np.min(f_eq) >= 0, "Simulation violated stability condition"
+
+        # collision
+        f = f * (1 - (DELTA_T / TAU)) + (DELTA_T / TAU) * f_eq
+
+        # streaming
+        for i in range(Q):
+            f[:, :, i] = np.roll(f[:, :, i], c[i], axis=(1, 0))
+
+        return f, rho, ux, uy
 
 
-def get_equilibrium(rho, u):
-    udotc = np.einsum('axy,ia->xyi', u, c)
-    udotu = np.linalg.norm(u, axis=0)**2
+"""Render the values collected by the model with matplotlib.
+"""
+def render_lbm_model(model, save=False):
+    fig, ax = plt.subplots()
+    img = plt.imshow(model.rho_snapshots[0], extent=(0, LATTICE_WIDTH, 0, LATTICE_HEIGHT),
+                    cmap=plt.get_cmap("Greys"))
 
-    # f_eq = np.einsum('i,xy->xyi', w, rho) * (1 + cdot3u*(1 + 0.5*cdot3u) - 1.5*usq[:,:,np.newaxis])
+    def animate(i):
+        ax.set_title(i)
+        img.set_data(model.rho_snapshots[i])
 
-    f_eq = np.full([LATTICE_WIDTH, LATTICE_HEIGHT, NUM_VELOCITIES], 0.0)
-    # for i in range(NUM_VELOCITIES):
-    #     f_eq[:, :, i] = w[i] * rho * (1 + udotc[:, :, i] / cssq
-    #         + udotc[:, :, i] / (2 * cssq**2) - udotu / (2 * cssq))
+    anim = FuncAnimation(fig, animate, interval=10, frames=len(model.rho_snapshots) - 1,
+                            repeat=False)
 
-    ux = u[0,:,:]
-    uy = u[1,:,:]
+    plt.show()
 
-    f_eq[:,:,0] = 2 * rho / 9 * (2 - 3 * udotu)
-    f_eq[:,:,1] = rho / 18 * (2 + 6 * ux + 9 * ux**2 - 3 * udotu)
-    f_eq[:,:,2] = rho / 18 * (2 + 6 * uy + 9 * uy**2 - 3 * udotu)
-    f_eq[:,:,3] = rho / 18 * (2 - 6 * ux + 9 * ux**2 - 3 * udotu)
-    f_eq[:,:,4] = rho / 18 * (2 - 6 * uy + 9 * uy**2 - 3 * udotu)
-    f_eq[:,:,5] = rho / 36 * (1 + 3 * (ux + uy) + 9 * ux * uy + 3 * udotu)
-    f_eq[:,:,6] = rho / 36 * (1 - 3 * (ux - uy) - 9 * ux * uy + 3 * udotu)
-    f_eq[:,:,7] = rho / 36 * (1 - 3 * (ux + uy) + 9 * ux * uy + 3 * udotu)
-    f_eq[:,:,8] = rho / 36 * (1 + 3 * (ux - uy) - 9 * ux * uy + 3 * udotu)
-
-    # TODO: remove this, it's just here so we can inspect it to see if they
-    # eq_rho matches rho and eq_rho_u matches rho_u (which does seem to be the
-    # case).
-    eq_rho = np.sum(f_eq, axis=2)
-    rho_u = np.einsum('xyk,kc->xyc', f, c)
-    eq_rho_u = np.einsum('xyk,kc->xyc', f_eq, c)
-
-    print(np.sum(rho))
-
-    return f_eq
-    # for x in range(LATTICE_WIDTH):
-    #     for y in range(LATTICE_HEIGHT):
-    #         for i in range(NUM_VELOCITIES):
-    #             f_eq[x, y, i] = w[i] * rho[x, y] * (
-    #                 1 + np.dot(u[x, y, :], c[i])
-    #                 + np.dot(u[x, y, :], c[i]**2) / (2 * c_s**4)
-    #                 - np.dot(u[x, y, :], u[x, y, :]) / (2 * c_s**2)
-    #             )
-
-    return f_eq
+    if save:
+        anim.save(time.strftime("%Y%m%d-%H%M%S.gif"))
 
 
-def collision(f, f_eq):
-    f = f * (1 - 1 / tau) + 1 / tau * f_eq
-    return f
+if __name__ == '__main__':
+    model = LBM()
 
+    model.run()
 
-def streaming(f):
-    for i in range(NUM_VELOCITIES):
-        f[:, :, i] = np.roll(f[:, :, i], c[i], axis=(1, 0))
-
-    return f
-
-
-def lbm_iteration(f):
-    # moment update
-    rho, u = moment_update(f)
-    # # equilibrium
-    f_eq = get_equilibrium(rho, u)
-    # # collision
-    f = collision(f, f_eq)
-    # streaming
-    f = streaming(f)
-
-    return f, rho, u
-
-
-# initialisation
-# f = np.full([LATTICE_WIDTH, LATTICE_HEIGHT, NUM_VELOCITIES], 1.0)
-f = np.random.random([LATTICE_WIDTH, LATTICE_HEIGHT, NUM_VELOCITIES])
-
-rho, u = moment_update(f)
-
-fig, ax = plt.subplots()
-img = plt.imshow(rho, extent=(0, LATTICE_WIDTH, 0, LATTICE_HEIGHT),
-                 cmap=plt.get_cmap("Greys"))
-
-
-def init():
-    ax.set_xlim(0, LATTICE_WIDTH)
-    ax.set_ylim(0, LATTICE_HEIGHT)
-    return img,
-
-
-def update(frame):
-    global f
-    print(frame)
-    f, rho, _ = lbm_iteration(f)
-    img.set_data(rho)
-    return img,
-
-
-anim = FuncAnimation(fig, update, frames=500, interval=1,
-                     init_func=init, repeat=False, blit=True)
-plt.show()
+    render_lbm_model(model)
