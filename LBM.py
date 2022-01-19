@@ -11,8 +11,8 @@ from scipy.interpolate import RegularGridInterpolator
 NORMAL_DIST_STDDEV = 0.3
 
 # Model
-ITERATIONS = 31
-SNAP_INTERVAL = 5
+ITERATIONS = 201
+SNAP_INTERVAL = 1
 SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
 
 # LBM parameters
@@ -24,12 +24,19 @@ viscosity = 0.01
 TAU = 3*viscosity + 0.5
 DELTA_T = 1
 DELTA_X = 1
-NUM_LOOPS = 3
-WIDTH = 10
-HEIGHT = 10
+WIDTH = 100
+HEIGHT = 100
 Q = 9
 cssq = (1/3) * (DELTA_X / DELTA_T)**2
 
+wall = np.zeros((WIDTH, HEIGHT), bool)                     # Set to True wherever there's a wall
+# wall[WIDTH//3:(2 * WIDTH//3), HEIGHT//3:(2*HEIGHT//3)] = True
+
+# Set up cylinder
+for y in range(0, HEIGHT) :
+    for x in range(0, WIDTH) :
+        if np.sqrt((x-WIDTH/4)**2 + (y-HEIGHT/2)**2) < 10.0: 
+            wall[x,y] = True
 
 class LBM:
     def __init__(self):
@@ -37,19 +44,23 @@ class LBM:
         self.ux_snapshots = np.copy(self.rho_snapshots)
         self.uy_snapshots = np.copy(self.rho_snapshots)
 
+        self.rho = np.ones((WIDTH, HEIGHT))
+        self.rho += 0.05 * np.random.randn(WIDTH, HEIGHT)
+        self.ux = np.full((WIDTH, HEIGHT), 0.1)
+        self.uy = np.zeros((WIDTH, HEIGHT)) 
+
+        self.f = LBM.get_equilibrium(self.rho, self.ux, self.uy)
+
     """Initialise and run the simulation.
     """
     def run(self):
-        f = np.ones((WIDTH,HEIGHT,Q))
-        f += NORMAL_DIST_STDDEV * np.random.randn(WIDTH,HEIGHT,Q)
-
         for i in range(ITERATIONS):
-            f, rho, ux, uy = LBM.lbm_iteration(f)
+            self.lbm_iteration(self.f)
 
             if i % SNAP_INTERVAL == 0 or i == ITERATIONS - 1:
-                self.rho_snapshots[i//SNAP_INTERVAL] = rho
-                self.ux_snapshots[i//SNAP_INTERVAL] = ux
-                self.uy_snapshots[i//SNAP_INTERVAL] = uy
+                self.rho_snapshots[i//SNAP_INTERVAL] = self.rho
+                self.ux_snapshots[i//SNAP_INTERVAL] = self.ux
+                self.uy_snapshots[i//SNAP_INTERVAL] = self.uy
 
     """Update the rho and velocity values of each grid position.
     """
@@ -80,24 +91,27 @@ class LBM:
 
     """Perform an iteration of the Lattice-Boltzmann method.
     """
-    def lbm_iteration(f):
+    def lbm_iteration(self, f):
         # moment update
-        rho, ux, uy = LBM.moment_update(f)
+        self.rho, self.ux, self.uy = LBM.moment_update(self.f)
 
         # equilibrium
-        f_eq = LBM.get_equilibrium(rho, ux, uy)
+        f_eq = LBM.get_equilibrium(self.rho, self.ux, self.uy)
 
         # Check stability condition
         assert np.min(f_eq) >= 0, "Simulation violated stability condition"
 
         # collision
-        f = f * (1 - (DELTA_T / TAU)) + (DELTA_T / TAU) * f_eq
+        self.f = self.f * (1 - (DELTA_T / TAU)) + (DELTA_T / TAU) * f_eq
 
         # streaming
         for i in range(Q):
-            f[:, :, i] = np.roll(f[:, :, i], c[i], axis=(1, 0))
+            self.f[:, :, i] = np.roll(f[:, :, i], c[i], axis=(1, 0))
 
-        return f, rho, ux, uy
+        # bounce back
+        boundary_f = self.f[wall, :]
+        boundary_f = boundary_f[:,[0,3,4,1,2,7,8,5,6]]
+        self.f[wall,:] = boundary_f
 
 
 """Render the values collected by the model with matplotlib.
@@ -106,23 +120,27 @@ def render_lbm_model(model, particle_locations, save=False):
     particles = particle_locations.shape[1]
 
     fig, ax = plt.subplots()
-    rho_plot = plt.imshow(model.rho_snapshots[0], extent=(0, WIDTH, 0, HEIGHT),
-                    cmap=plt.get_cmap("Greys"))
+    mag_plot = plt.imshow(np.sqrt(model.ux_snapshots[0]**2 + 
+                                  model.uy_snapshots[0]**2),
+                          extent=(0, WIDTH, 0, HEIGHT),
+                          norm=plt.Normalize(-0.2, 0.2),
+                          cmap=plt.get_cmap("jet"))
 
-    particle_plots = [plt.plot(particle_locations[0,i,0],
-                               particle_locations[0,i,1],
+    particle_plots = [plt.plot(particle_locations[0,i,0] + 1/2,
+                               particle_locations[0,i,1] + 1/2,
                                'ro', markersize=10)[0]
                       for i in range(particles)]
 
     def animate(i):
         ax.set_title(i)
-        rho_plot.set_data(model.rho_snapshots[i//SNAP_INTERVAL])
+        mag_plot.set_data(np.sqrt(model.ux_snapshots[i//SNAP_INTERVAL]**2 + 
+                                  model.uy_snapshots[i//SNAP_INTERVAL]**2))
 
         for j in range(particles):
-            particle_plots[j].set_data(particle_locations[i,j,0],
-                                       particle_locations[i,j,1])
+            particle_plots[j].set_data(particle_locations[i,j,0] + 1/2,
+                                       particle_locations[i,j,1] + 1/2)
 
-    anim = FuncAnimation(fig, animate, interval=300, frames=ITERATIONS,
+    anim = FuncAnimation(fig, animate, interval=1, frames=ITERATIONS,
                          repeat=False)
 
     plt.show()
@@ -135,7 +153,7 @@ def track_particles(model):
     """
     Tracks the motions of particles through the airflow.
     """
-    gridsize = 2
+    gridsize = 6
 
     particle_locations = np.zeros((ITERATIONS, gridsize**2, 2))
     xs = ys = np.linspace((1/(gridsize + 1)) * WIDTH, 
