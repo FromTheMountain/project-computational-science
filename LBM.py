@@ -11,7 +11,7 @@ from scipy.interpolate import RegularGridInterpolator
 NORMAL_DIST_STDDEV = 0.3
 
 # Model
-ITERATIONS = 201
+ITERATIONS = 401
 SNAP_INTERVAL = 1
 SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
 
@@ -24,19 +24,21 @@ viscosity = 0.01
 TAU = 3*viscosity + 0.5
 DELTA_T = 1
 DELTA_X = 1
-WIDTH = 100
-HEIGHT = 100
+WIDTH = 80
+HEIGHT = 80
 Q = 9
 cssq = (1/3) * (DELTA_X / DELTA_T)**2
 
-wall = np.zeros((WIDTH, HEIGHT), bool)                     # Set to True wherever there's a wall
+# Set to True wherever there's a wall
+wall = np.zeros((WIDTH, HEIGHT), bool)
 # wall[WIDTH//3:(2 * WIDTH//3), HEIGHT//3:(2*HEIGHT//3)] = True
 
 # Set up cylinder
-for y in range(0, HEIGHT) :
-    for x in range(0, WIDTH) :
-        if np.sqrt((x-WIDTH/4)**2 + (y-HEIGHT/2)**2) < 10.0: 
-            wall[x,y] = True
+for y in range(0, HEIGHT):
+    for x in range(0, WIDTH):
+        if np.sqrt((x-WIDTH/4)**2 + (y-HEIGHT/2)**2) < 10.0:
+            wall[x, y] = True
+
 
 class LBM:
     def __init__(self):
@@ -47,7 +49,7 @@ class LBM:
         self.rho = np.ones((WIDTH, HEIGHT))
         self.rho += 0.05 * np.random.randn(WIDTH, HEIGHT)
         self.ux = np.full((WIDTH, HEIGHT), 0.1)
-        self.uy = np.zeros((WIDTH, HEIGHT)) 
+        self.uy = np.zeros((WIDTH, HEIGHT))
 
         self.f = LBM.get_equilibrium(self.rho, self.ux, self.uy)
 
@@ -67,8 +69,8 @@ class LBM:
     def moment_update(f):
         rho = np.sum(f, 2)
 
-        ux = np.sum(c[:,0] * f, axis=2) / rho
-        uy = np.sum(c[:,1] * f, axis=2) / rho
+        ux = np.sum(c[:, 0] * f, axis=2) / rho
+        uy = np.sum(c[:, 1] * f, axis=2) / rho
 
         return rho, ux, uy
 
@@ -79,13 +81,14 @@ class LBM:
 
         udotc = np.zeros([WIDTH, HEIGHT, Q])
         for i in range(Q):
-            udotc[:,:,i] = ux * c[i,0] + uy * c[i,1]
+            udotc[:, :, i] = ux * c[i, 0] + uy * c[i, 1]
 
         f_eq = np.zeros((WIDTH, HEIGHT, 9), dtype=float)
 
         for i in range(Q):
-            f_eq[:,:,i] = w[i] * rho * (1 + udotc[:,:,i] / cssq +
-                (udotc[:,:,i])**2 / (2 * cssq**2) - udotu / (2 * cssq))
+            f_eq[:, :, i] = w[i] * rho * (1 + udotc[:, :, i] / cssq +
+                                          (udotc[:, :, i])**2 / (2 * cssq**2) -
+                                          udotu / (2 * cssq))
 
         return f_eq
 
@@ -110,43 +113,61 @@ class LBM:
 
         # bounce back
         boundary_f = self.f[wall, :]
-        boundary_f = boundary_f[:,[0,3,4,1,2,7,8,5,6]]
-        self.f[wall,:] = boundary_f
+        boundary_f = boundary_f[:, [0, 3, 4, 1, 2, 7, 8, 5, 6]]
+        self.f[wall, :] = boundary_f
 
 
-"""Render the values collected by the model with matplotlib.
-"""
-def render_lbm_model(model, particle_locations, save=False):
+def render_lbm_model(model, particle_locations, kind="density", save=False):
+    """
+    Render the values collected by the model with matplotlib. Argument "kind"
+    should be of value "density", "mag", or "vector"
+    """
     particles = particle_locations.shape[1]
 
     fig, ax = plt.subplots()
-    # mag_plot = plt.imshow(np.sqrt(model.ux_snapshots[0]**2 + 
-    #                               model.uy_snapshots[0]**2),
-    #                       extent=(0, WIDTH, 0, HEIGHT),
-    #                       norm=plt.Normalize(-0.2, 0.2),
-    #                       cmap=plt.get_cmap("jet"))
-    mag_plot = plt.imshow(model.rho_snapshots[0],
-                          extent=(0, WIDTH, 0, HEIGHT),
-                          vmin=np.min(model.rho_snapshots),
-                          vmax=np.max(model.rho_snapshots),
-                        #   norm=plt.Normalize(-0.2, 0.2),
-                          cmap=plt.get_cmap("jet"))
 
-    particle_plots = [plt.plot(particle_locations[0,i,0] + 1/2,
-                               particle_locations[0,i,1] + 1/2,
+    if kind == "density" or kind == "mag":
+        init_vals = np.sqrt(model.ux_snapshots[0]**2 +
+                            model.uy_snapshots[0]**2) if kind == "mag" \
+                        else model.rho_snapshots[0]
+        vmin = 0 if kind == "mag" else 0.8
+        vmax = 0.2 if kind == "mag" else 1.2
+        fluid_plot = plt.imshow(init_vals.T, 
+                                extent=(0, WIDTH, 0, HEIGHT),
+                                vmin=vmin, vmax=vmax, cmap=plt.get_cmap("jet"))
+    else:
+        x, y = np.meshgrid(np.linspace(0, WIDTH-1, 20, dtype=int),
+                           np.linspace(0, HEIGHT-1, 20, dtype=int))
+        u = model.ux_snapshots[0, x, y]
+        v = model.uy_snapshots[0, x, y]
+
+        fluid_plot = plt.quiver(x, y, u, v)
+
+    particle_plots = [plt.plot(particle_locations[0, i, 0] + 1/2,
+                               particle_locations[0, i, 1] + 1/2,
                                'ro', markersize=10)[0]
                       for i in range(particles)]
 
     def animate(i):
         ax.set_title(i)
-        # mag_plot.set_data(np.sqrt(model.ux_snapshots[i//SNAP_INTERVAL]**2 + 
-        #                           model.uy_snapshots[i//SNAP_INTERVAL]**2))
-        
-        mag_plot.set_data(model.rho_snapshots[i//SNAP_INTERVAL])
+
+        if kind == "density" or kind == "mag":
+            vals = np.sqrt(model.ux_snapshots[i//SNAP_INTERVAL]**2 +
+                           model.uy_snapshots[i//SNAP_INTERVAL]**2) \
+                if kind == "mag" else model.rho_snapshots[i//SNAP_INTERVAL]
+
+            fluid_plot.set_data(vals.T)
+        else:
+            x, y = np.meshgrid(np.linspace(0, WIDTH-1, 20, dtype=int),
+                               np.linspace(0, HEIGHT-1, 20, dtype=int))
+            u = model.ux_snapshots[i//SNAP_INTERVAL, x, y]
+            v = model.uy_snapshots[i//SNAP_INTERVAL, x, y]
+
+            fluid_plot.set_UVC(u, v)
 
         for j in range(particles):
-            particle_plots[j].set_data(particle_locations[i,j,0] + 1/2,
-                                       particle_locations[i,j,1] + 1/2)
+            particle_plots[j].set_data(particle_locations[i, j, 0] + 1/2,
+                                       particle_locations[i, j, 1] + 1/2)
 
     anim = FuncAnimation(fig, animate, interval=1, frames=ITERATIONS,
                          repeat=False)
@@ -164,7 +185,7 @@ def track_particles(model):
     gridsize = 6
 
     particle_locations = np.zeros((ITERATIONS, gridsize**2, 2))
-    xs = ys = np.linspace((1/(gridsize + 1)) * WIDTH, 
+    xs = ys = np.linspace((1/(gridsize + 1)) * WIDTH,
                           (1 - 1/(gridsize + 1)) * WIDTH, gridsize)
     particle_locations[0] = np.dstack(np.meshgrid(xs, ys)).reshape(-1, 2)
 
@@ -180,7 +201,7 @@ def track_particles(model):
         # Add the linearly interpolated velocity vector to the location of the
         # point.
         for j in range(gridsize**2):
-            x, y = particle_locations[i,j]
+            x, y = particle_locations[i, j]
             dx, dy = ux_func([i, x, y])[0], uy_func([i, x, y])[0]
 
             # Keep particles inside boundaries
@@ -197,4 +218,4 @@ if __name__ == '__main__':
 
     particle_locations = track_particles(model)
 
-    render_lbm_model(model, particle_locations)
+    render_lbm_model(model, particle_locations, kind="mag")
