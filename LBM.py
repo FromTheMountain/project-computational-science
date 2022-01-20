@@ -116,6 +116,15 @@ class LBM:
         boundary_f = boundary_f[:, [0, 3, 4, 1, 2, 7, 8, 5, 6]]
         self.f[wall, :] = boundary_f
 
+        # Rightward flow at left
+        u0 = 0.3
+        self.f[0,:,1] = 1/9 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        self.f[0,:,3] = 1/9 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        self.f[0,:,5] = 1/36 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        self.f[0,:,8] = 1/36 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        self.f[0,:,6] = 1/36 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        self.f[0,:,7] = 1/36 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+
 
 def render_lbm_model(model, particle_locations, kind="density", save=False):
     """
@@ -218,4 +227,4 @@ if __name__ == '__main__':
 
     particle_locations = track_particles(model)
 
-    render_lbm_model(model, particle_locations, kind="mag")
+    render_lbm_model(model, particle_locations, kind="vector")
