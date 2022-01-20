@@ -5,6 +5,7 @@
 from enum import Enum
 from collections import deque
 
+import tkinter.filedialog
 import tkinter as tk
 from tkinter import ttk
 
@@ -22,14 +23,16 @@ UNDO_BUFFER_SIZE = 10
 
 
 class CellType(Enum):
-    NORMAL = 0
+    AIR = 0
     WALL = 1
-    BOUNDARY = 2
+    INLET = 2
+    OUTLET = 3
 
 
 class Tool(Enum):
     BRUSH = 0
-    LINE = 1
+    SQUARE = 1
+    LINE = 2
 
 
 def get_map_from_file(file):
@@ -61,7 +64,7 @@ class MapEditor:
             self.map_size = int(map_size)
 
         self.map = np.full([self.map_size, self.map_size],
-                           CellType.NORMAL.value)
+                           CellType.AIR.value)
 
         self.undo_buffer = deque()
         self.undo_buffer.append(np.copy(self.map))
@@ -126,7 +129,7 @@ class MapEditor:
 
         self.mouse_held = False
         self.tool = Tool.BRUSH.value
-        self.cell_type = CellType.NORMAL.value
+        self.cell_type = CellType.AIR.value
         self.edit_radius = self.map_size // 10
 
     def setup_widgets(self):
@@ -170,17 +173,17 @@ class MapEditor:
 
         self.map_size, self.map = get_map_from_file(self.filename)
 
-        # The edges consist of "unknown" tiles, which are not needed in the
-        # editor.
-        self.map_size -= 2
-        self.map = self.map[1:-1, 1:-1]
-
         # Draw the map to the screen
         self.img = self.ax.imshow(self.map, interpolation='none', vmin=0,
-                                  vmax=len(CellType), cmap=cmap, animated=True)
+                                  vmax=len(CellType), cmap=cmap)
         self.update_view()
 
-        self.edit_radius = self.map_size // 10
+        self.undo_buffer = deque()
+        self.undo_buffer.append(np.copy(self.map))
+        self.undo_buffer_pos = 0
+
+        print("done opening file")
+        print(self.map)
 
     def save_file(self, event=None):
         """
@@ -190,14 +193,8 @@ class MapEditor:
 
         if self.filename:
             with open(self.filename, 'w') as file:
-                file.write((self.map_size + 2) *
-                           str(CellType.UNKNOWN.value) + "\n")
                 for row in self.map:
-                    file.write(str(CellType.UNKNOWN.value))
-                    file.write("".join([str(x) for x in row]))
-                    file.write(str(CellType.UNKNOWN.value) + "\n")
-                file.write((self.map_size + 2) *
-                           str(CellType.UNKNOWN.value) + "\n")
+                    file.write("".join([str(x) for x in row]) + "\n")
 
     def filter_out_of_bounds(self, row, col):
         """
@@ -217,19 +214,24 @@ class MapEditor:
 
         return row, col
 
-    def get_cells_near_point(self, x, y, r):
+    def points_in_circle(self, x, y, r):
         """
         Return cells that have a distance less than r to the point (x, y).
         """
-        diameter = r * 2
-        row, col = np.indices((diameter, diameter)) - r
+        row, col = np.indices((2 * r, 2 * r)) - r
 
         idx = np.hypot(row, col) <= r
 
-        row = row[idx] + y
-        col = col[idx] + x
+        return self.filter_out_of_bounds(row[idx] + y, col[idx] + x)
 
-        return self.filter_out_of_bounds(row, col)
+    def points_in_square(self, x, y, r):
+        """
+        Return cells that lie inside the square centered at (x, y) with side
+        length 2r.
+        """
+        row, col = np.indices((2 * r, 2 * r)) - r
+
+        return self.filter_out_of_bounds(row + y, col + x)
 
     def get_cells_near_line(self, x1, y1, x2,  y2, r):
         """
@@ -286,7 +288,13 @@ class MapEditor:
         if self.mouse_held and self.tool == Tool.BRUSH.value:
             # Color all cells that are closer than self.edit_radius to
             # (xdata, ydata) with the selected cell type
-            row, col = self.get_cells_near_point(x, y, self.edit_radius)
+            row, col = self.points_in_circle(x, y, self.edit_radius)
+
+            self.map[row, col] = self.cell_type
+
+            self.update_view()
+        elif self.mouse_held and self.tool == Tool.SQUARE.value:
+            row, col = self.points_in_square(x, y, self.edit_radius)
 
             self.map[row, col] = self.cell_type
 
