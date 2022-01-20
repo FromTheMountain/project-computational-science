@@ -55,7 +55,7 @@ class LBM:
     """
     def run(self):
         for i in range(ITERATIONS):
-            self.lbm_iteration(self.f)
+            self.lbm_iteration()
 
             if i % SNAP_INTERVAL == 0 or i == ITERATIONS - 1:
                 self.rho_snapshots[i//SNAP_INTERVAL] = self.rho
@@ -91,7 +91,7 @@ class LBM:
 
     """Perform an iteration of the Lattice-Boltzmann method.
     """
-    def lbm_iteration(self, f):
+    def lbm_iteration(self):
         # moment update
         self.rho, self.ux, self.uy = LBM.moment_update(self.f)
 
@@ -106,7 +106,7 @@ class LBM:
 
         # streaming
         for i in range(Q):
-            self.f[:, :, i] = np.roll(f[:, :, i], c[i], axis=(1, 0))
+            self.f[:, :, i] = np.roll(self.f[:, :, i], c[i], axis=(1, 0))
 
         # bounce back
         boundary_f = self.f[wall, :]
@@ -120,10 +120,16 @@ def render_lbm_model(model, particle_locations, save=False):
     particles = particle_locations.shape[1]
 
     fig, ax = plt.subplots()
-    mag_plot = plt.imshow(np.sqrt(model.ux_snapshots[0]**2 + 
-                                  model.uy_snapshots[0]**2),
+    # mag_plot = plt.imshow(np.sqrt(model.ux_snapshots[0]**2 + 
+    #                               model.uy_snapshots[0]**2),
+    #                       extent=(0, WIDTH, 0, HEIGHT),
+    #                       norm=plt.Normalize(-0.2, 0.2),
+    #                       cmap=plt.get_cmap("jet"))
+    mag_plot = plt.imshow(model.rho_snapshots[0],
                           extent=(0, WIDTH, 0, HEIGHT),
-                          norm=plt.Normalize(-0.2, 0.2),
+                          vmin=np.min(model.rho_snapshots),
+                          vmax=np.max(model.rho_snapshots),
+                        #   norm=plt.Normalize(-0.2, 0.2),
                           cmap=plt.get_cmap("jet"))
 
     particle_plots = [plt.plot(particle_locations[0,i,0] + 1/2,
@@ -133,8 +139,10 @@ def render_lbm_model(model, particle_locations, save=False):
 
     def animate(i):
         ax.set_title(i)
-        mag_plot.set_data(np.sqrt(model.ux_snapshots[i//SNAP_INTERVAL]**2 + 
-                                  model.uy_snapshots[i//SNAP_INTERVAL]**2))
+        # mag_plot.set_data(np.sqrt(model.ux_snapshots[i//SNAP_INTERVAL]**2 + 
+        #                           model.uy_snapshots[i//SNAP_INTERVAL]**2))
+        
+        mag_plot.set_data(model.rho_snapshots[i//SNAP_INTERVAL])
 
         for j in range(particles):
             particle_plots[j].set_data(particle_locations[i,j,0] + 1/2,
