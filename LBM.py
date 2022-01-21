@@ -24,7 +24,7 @@ viscosity = 0.01
 TAU = 3*viscosity + 0.5
 DELTA_T = 1
 DELTA_X = 1
-WIDTH = 80
+WIDTH = 200
 HEIGHT = 80
 Q = 9
 cssq = (1/3) * (DELTA_X / DELTA_T)**2
@@ -55,6 +55,7 @@ class LBM:
 
     """Initialise and run the simulation.
     """
+
     def run(self):
         for i in range(ITERATIONS):
             self.lbm_iteration()
@@ -94,6 +95,7 @@ class LBM:
 
     """Perform an iteration of the Lattice-Boltzmann method.
     """
+
     def lbm_iteration(self):
         # moment update
         self.rho, self.ux, self.uy = LBM.moment_update(self.f)
@@ -109,7 +111,7 @@ class LBM:
 
         # streaming
         for i in range(Q):
-            self.f[:, :, i] = np.roll(self.f[:, :, i], c[i], axis=(1, 0))
+            self.f[:, :, i] = np.roll(self.f[:, :, i], c[i], axis=(0, 1))
 
         # bounce back
         boundary_f = self.f[wall, :]
@@ -117,16 +119,17 @@ class LBM:
         self.f[wall, :] = boundary_f
 
         # Rightward flow at left
-        u0 = 0.3
-        self.f[0,:,1] = 1/9 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
-        self.f[0,:,3] = 1/9 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
-        self.f[0,:,5] = 1/36 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
-        self.f[0,:,8] = 1/36 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
-        self.f[0,:,6] = 1/36 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
-        self.f[0,:,7] = 1/36 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        u0 = 0.1
+        self.f[0, :, 1] = 1/9 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        self.f[0, :, 3] = 1/9 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        self.f[0, :, 5] = 1/36 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        self.f[0, :, 8] = 1/36 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        self.f[0, :, 6] = 1/36 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        self.f[0, :, 7] = 1/36 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
 
 
-def render_lbm_model(model, particle_locations, kind="density", save=False):
+def render_lbm_model(model, particle_locations, kind="density", vectors=False,
+                     save=False):
     """
     Render the values collected by the model with matplotlib. Argument "kind"
     should be of value "density", "mag", or "vector"
@@ -135,22 +138,21 @@ def render_lbm_model(model, particle_locations, kind="density", save=False):
 
     fig, ax = plt.subplots()
 
-    if kind == "density" or kind == "mag":
-        init_vals = np.sqrt(model.ux_snapshots[0]**2 +
-                            model.uy_snapshots[0]**2) if kind == "mag" \
-                        else model.rho_snapshots[0]
-        vmin = 0 if kind == "mag" else 0.8
-        vmax = 0.2 if kind == "mag" else 1.2
-        fluid_plot = plt.imshow(init_vals.T, 
-                                extent=(0, WIDTH, 0, HEIGHT),
-                                vmin=vmin, vmax=vmax, cmap=plt.get_cmap("jet"))
-    else:
+    init_vals = np.sqrt(model.ux_snapshots[0]**2 +
+                        model.uy_snapshots[0]**2) if kind == "mag" \
+        else model.rho_snapshots[0]
+    vmin = -0.2 if kind == "mag" else 0.8
+    vmax = 0.2 if kind == "mag" else 1.2
+    fluid_plot = plt.imshow(init_vals.T, extent=(0, WIDTH, 0, HEIGHT),
+                            vmin=vmin, vmax=vmax, cmap=plt.get_cmap("jet"))
+
+    if vectors:
         x, y = np.meshgrid(np.linspace(0, WIDTH-1, 20, dtype=int),
                            np.linspace(0, HEIGHT-1, 20, dtype=int))
         u = model.ux_snapshots[0, x, y]
         v = model.uy_snapshots[0, x, y]
 
-        fluid_plot = plt.quiver(x, y, u, v)
+        vector_plot = plt.quiver(x, y, u, v)
 
     particle_plots = [plt.plot(particle_locations[0, i, 0] + 1/2,
                                particle_locations[0, i, 1] + 1/2,
@@ -160,19 +162,17 @@ def render_lbm_model(model, particle_locations, kind="density", save=False):
     def animate(i):
         ax.set_title(i)
 
-        if kind == "density" or kind == "mag":
-            vals = np.sqrt(model.ux_snapshots[i//SNAP_INTERVAL]**2 +
-                           model.uy_snapshots[i//SNAP_INTERVAL]**2) \
-                if kind == "mag" else model.rho_snapshots[i//SNAP_INTERVAL]
+        vals = np.sqrt(model.ux_snapshots[i//SNAP_INTERVAL]**2 +
+                       model.uy_snapshots[i//SNAP_INTERVAL]**2) \
+            if kind == "mag" else model.rho_snapshots[i//SNAP_INTERVAL]
 
-            fluid_plot.set_data(vals.T)
-        else:
-            x, y = np.meshgrid(np.linspace(0, WIDTH-1, 20, dtype=int),
-                               np.linspace(0, HEIGHT-1, 20, dtype=int))
+        fluid_plot.set_data(vals.T)
+
+        if vectors:
             u = model.ux_snapshots[i//SNAP_INTERVAL, x, y]
             v = model.uy_snapshots[i//SNAP_INTERVAL, x, y]
 
-            fluid_plot.set_UVC(u, v)
+            vector_plot.set_UVC(u, v)
 
         for j in range(particles):
             particle_plots[j].set_data(particle_locations[i, j, 0] + 1/2,
@@ -194,8 +194,9 @@ def track_particles(model):
     gridsize = 6
 
     particle_locations = np.zeros((ITERATIONS, gridsize**2, 2))
-    xs = ys = np.linspace((1/(gridsize + 1)) * WIDTH,
-                          (1 - 1/(gridsize + 1)) * WIDTH, gridsize)
+
+    fracs = np.linspace((1/(gridsize + 1)), (1 - 1/(gridsize + 1)), gridsize)
+    xs, ys = fracs * WIDTH, fracs * HEIGHT
     particle_locations[0] = np.dstack(np.meshgrid(xs, ys)).reshape(-1, 2)
 
     ux_func = RegularGridInterpolator((np.arange(0, ITERATIONS, SNAP_INTERVAL),
@@ -220,6 +221,7 @@ def track_particles(model):
 
     return particle_locations
 
+
 if __name__ == '__main__':
     model = LBM()
 
@@ -227,4 +229,4 @@ if __name__ == '__main__':
 
     particle_locations = track_particles(model)
 
-    render_lbm_model(model, particle_locations, kind="vector")
+    render_lbm_model(model, particle_locations, kind="mag", vectors=True)
