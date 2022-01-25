@@ -11,7 +11,7 @@ from scipy.interpolate import RegularGridInterpolator
 NORMAL_DIST_STDDEV = 0.3
 
 # Model
-ITERATIONS = 401
+ITERATIONS = 1601
 SNAP_INTERVAL = 1
 SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
 
@@ -20,24 +20,33 @@ c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
               (-1, 1), (-1, -1), (1, -1)])
 w = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36])
 
-viscosity = 0.01
+viscosity = 0.02
 TAU = 3*viscosity + 0.5
 DELTA_T = 1
 DELTA_X = 1
-WIDTH = 200
-HEIGHT = 80
 Q = 9
 cssq = (1/3) * (DELTA_X / DELTA_T)**2
 
-# Set to True wherever there's a wall
-wall = np.zeros((WIDTH, HEIGHT), bool)
-# wall[WIDTH//3:(2 * WIDTH//3), HEIGHT//3:(2*HEIGHT//3)] = True
+# # Karman vortex
+# WIDTH = 200
+# HEIGHT = 80
+# wall = np.zeros((WIDTH, HEIGHT), bool)
 
-# Set up cylinder
-for y in range(0, HEIGHT):
-    for x in range(0, WIDTH):
-        if np.sqrt((x-WIDTH/4)**2 + (y-HEIGHT/2)**2) < 10.0:
-            wall[x, y] = True
+# for y in range(0, HEIGHT):
+#     for x in range(0, WIDTH):
+#         if np.sqrt((x-WIDTH/4)**2 + (y-HEIGHT/2)**2) < 10.0:
+#             wall[x, y] = True
+
+# wall[198:, :] = True
+# Lid driven cavity
+WIDTH = 100
+HEIGHT = 100
+wall = np.zeros((WIDTH, HEIGHT), bool)
+wall[0, :] = True
+wall[:, 0] = True
+wall[-1, :] = True
+
+# wall[WIDTH//3:(2 * WIDTH//3), HEIGHT//3:(2*HEIGHT//3)] = True
 
 
 class LBM:
@@ -47,8 +56,12 @@ class LBM:
         self.uy_snapshots = np.copy(self.rho_snapshots)
 
         self.rho = np.ones((WIDTH, HEIGHT))
-        self.rho += 0.05 * np.random.randn(WIDTH, HEIGHT)
-        self.ux = np.full((WIDTH, HEIGHT), 0.1)
+        # self.rho += 0.05 * np.random.randn(WIDTH, HEIGHT)
+        self.ux = np.full((WIDTH, HEIGHT), 0.0)
+
+        # Lid driven cavity
+        self.ux[:, -2:] = 0.3
+
         self.uy = np.zeros((WIDTH, HEIGHT))
 
         self.f = LBM.get_equilibrium(self.rho, self.ux, self.uy)
@@ -58,7 +71,7 @@ class LBM:
 
     def run(self):
         for i in range(ITERATIONS):
-            self.lbm_iteration()
+            self.lbm_iteration(i)
 
             if i % SNAP_INTERVAL == 0 or i == ITERATIONS - 1:
                 self.rho_snapshots[i//SNAP_INTERVAL] = self.rho
@@ -77,14 +90,14 @@ class LBM:
 
     """Calculate the equalibrium values of the grid.
     """
-    def get_equilibrium(rho, ux, uy):
+    def get_equilibrium(rho, ux, uy, width=WIDTH, height=HEIGHT):
         udotu = ux * ux + uy * uy
 
-        udotc = np.zeros([WIDTH, HEIGHT, Q])
+        udotc = np.zeros([width, height, Q])
         for i in range(Q):
             udotc[:, :, i] = ux * c[i, 0] + uy * c[i, 1]
 
-        f_eq = np.zeros((WIDTH, HEIGHT, 9), dtype=float)
+        f_eq = np.zeros((width, height, 9), dtype=float)
 
         for i in range(Q):
             f_eq[:, :, i] = w[i] * rho * (1 + udotc[:, :, i] / cssq +
@@ -96,7 +109,7 @@ class LBM:
     """Perform an iteration of the Lattice-Boltzmann method.
     """
 
-    def lbm_iteration(self):
+    def lbm_iteration(self, it):
         # moment update
         self.rho, self.ux, self.uy = LBM.moment_update(self.f)
 
@@ -118,33 +131,44 @@ class LBM:
         boundary_f = boundary_f[:, [0, 3, 4, 1, 2, 7, 8, 5, 6]]
         self.f[wall, :] = boundary_f
 
-        # Rightward flow at left
-        u0 = 0.1
-        self.f[0, :, 1] = 1/9 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
-        self.f[0, :, 3] = 1/9 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
-        self.f[0, :, 5] = 1/36 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
-        self.f[0, :, 8] = 1/36 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
-        self.f[0, :, 6] = 1/36 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
-        self.f[0, :, 7] = 1/36 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        # Karman vortex
+        # u0 = 0.0
+        # self.f[:10, :, 1] = 1/9 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        # self.f[:10, :, 3] = 1/9 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        # self.f[:10, :, 5] = 1/36 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        # self.f[:10, :, 8] = 1/36 * (1 + 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        # self.f[:10, :, 6] = 1/36 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+        # self.f[:10, :, 7] = 1/36 * (1 - 3*u0 + 4.5*u0**2 - 1.5*u0**2)
+
+        # Lid driven cavity
+        ux_top = 0.2
+        uy_top = 0
+        rho_top = self.rho[:, -2:]
+
+        self.f[:, -2:] = LBM.get_equilibrium(rho_top, ux_top, uy_top,
+                                             width=WIDTH, height=2)
 
 
-def render_lbm_model(model, particle_locations, kind="density", vectors=False,
-                     save=False):
+def render_lbm_model(model, particle_locations=None, kind="density",
+                     vectors=False, save=False):
     """
     Render the values collected by the model with matplotlib. Argument "kind"
     should be of value "density", "mag", or "vector"
     """
-    particles = particle_locations.shape[1]
+    # particles = particle_locations.shape[1]
 
     fig, ax = plt.subplots()
 
     init_vals = np.sqrt(model.ux_snapshots[0]**2 +
                         model.uy_snapshots[0]**2) if kind == "mag" \
         else model.rho_snapshots[0]
-    vmin = -0.2 if kind == "mag" else 0.8
+    vmin = 0 if kind == "mag" else 0.8
     vmax = 0.2 if kind == "mag" else 1.2
-    fluid_plot = plt.imshow(init_vals.T, extent=(0, WIDTH, 0, HEIGHT),
-                            vmin=vmin, vmax=vmax, cmap=plt.get_cmap("jet"))
+    fluid_plot = plt.imshow(np.flip(init_vals.T, axis=0),
+                            extent=(0, WIDTH, 0, HEIGHT), vmin=vmin, vmax=vmax,
+                            cmap=plt.get_cmap("jet"))
+    plt.colorbar(fluid_plot)
+
 
     if vectors:
         x, y = np.meshgrid(np.linspace(0, WIDTH-1, 20, dtype=int),
@@ -154,19 +178,19 @@ def render_lbm_model(model, particle_locations, kind="density", vectors=False,
 
         vector_plot = plt.quiver(x, y, u, v)
 
-    particle_plots = [plt.plot(particle_locations[0, i, 0] + 1/2,
-                               particle_locations[0, i, 1] + 1/2,
-                               'ro', markersize=10)[0]
-                      for i in range(particles)]
+    # particle_plots = [plt.plot(particle_locations[0, i, 0] + 1/2,
+    #                            particle_locations[0, i, 1] + 1/2,
+    #                            'ro', markersize=10)[0]
+    #                   for i in range(particles)]
 
     def animate(i):
-        ax.set_title(i)
+        ax.set_title("{}, iteration {}".format(kind, i))
 
         vals = np.sqrt(model.ux_snapshots[i//SNAP_INTERVAL]**2 +
                        model.uy_snapshots[i//SNAP_INTERVAL]**2) \
             if kind == "mag" else model.rho_snapshots[i//SNAP_INTERVAL]
 
-        fluid_plot.set_data(vals.T)
+        fluid_plot.set_data(np.flip(vals.T, axis=0))
 
         if vectors:
             u = model.ux_snapshots[i//SNAP_INTERVAL, x, y]
@@ -174,12 +198,12 @@ def render_lbm_model(model, particle_locations, kind="density", vectors=False,
 
             vector_plot.set_UVC(u, v)
 
-        for j in range(particles):
-            particle_plots[j].set_data(particle_locations[i, j, 0] + 1/2,
-                                       particle_locations[i, j, 1] + 1/2)
+        # for j in range(particles):
+        #     particle_plots[j].set_data(particle_locations[i, j, 0] + 1/2,
+        #                                particle_locations[i, j, 1] + 1/2)
 
     anim = FuncAnimation(fig, animate, interval=1, frames=ITERATIONS,
-                         repeat=False)
+                         repeat=True)
 
     plt.show()
 
@@ -227,6 +251,6 @@ if __name__ == '__main__':
 
     model.run()
 
-    particle_locations = track_particles(model)
+    # particle_locations = track_particles(model)
 
-    render_lbm_model(model, particle_locations, kind="mag", vectors=True)
+    render_lbm_model(model, kind="mag", vectors=True)
