@@ -151,12 +151,12 @@ class LBM:
             self.f[:, :, i] = np.roll(self.f[:, :, i], c[i], axis=(0, 1))
 
         # bounce back
-        boundary_f = self.f[wall, :]
+        boundary_f = self.f[self.wall, :]
         boundary_f = boundary_f[:, [0, 3, 4, 1, 2, 7, 8, 5, 6]]
         self.f[wall, :] = boundary_f
 
         # Set the velocity vector at inlets
-        inlet_ux = 0.2
+        inlet_ux = 0.05
         inlet_uy = 0.0
         inlet_rho = self.rho[self.inlet]
 
@@ -240,9 +240,11 @@ class LBM:
         Tracks the motions of particles through the airflow.
         """
         num_particles = 20
+        mass_factor = 0.5
 
         # Spawn num_particles particles at evenly spaced intervals.
         particle_locations = np.zeros((ITERATIONS, num_particles, 2))
+        particle_velocities = np.zeros((ITERATIONS, num_particles, 2))
 
         ux_func = RegularGridInterpolator(
             (np.arange(0, ITERATIONS, SNAP_INTERVAL), np.arange(self.width),
@@ -262,11 +264,22 @@ class LBM:
                 particle_locations[i, i // (ITERATIONS // num_particles)] = \
                     inlet_indices[0][idx], inlet_indices[1][idx]
 
+                particle_velocities[i, i // (ITERATIONS // num_particles)] = \
+                    [0.0, 0.0]
+
             # Add the linearly interpolated velocity vector to the location of
             # the point.
             for j in range(i // (ITERATIONS // num_particles) + 1):
                 x, y = particle_locations[i, j]
-                dx, dy = ux_func([i, x, y])[0], uy_func([i, x, y])[0]
+                vx, vy = particle_velocities[i, j] # Particle velocity
+                ux, uy = ux_func([i, x, y])[0], uy_func([i, x, y])[0] # Air velocity
+
+                new_vx = ((1 - mass_factor) * vx + mass_factor * ux) / 2
+                new_vy = ((1 - mass_factor) * vy + mass_factor * uy) / 2
+                particle_velocities[i + 1, j] = [new_vx, new_vy]
+
+                dx = new_vx
+                dy = new_vy
 
                 # Keep particles inside boundaries
                 new_x = min(max(0, x + dx), self.width - 1)
@@ -281,12 +294,12 @@ if __name__ == '__main__':
     # to be made. First, the filename below needs to be modified to
     # './maps/karmanvortex'. Second, the scale parameter in line 201 needs to
     # be adjusted to 4.
-    wall, inlet, outlet = read_map_from_file('./maps/liddrivencavity')
+    # wall, inlet, outlet = read_map_from_file('./maps/liddrivencavity')
+    wall, inlet, outlet = read_map_from_file('./maps/concept1')
 
     model = LBM(wall, inlet, outlet)
     model.run()
 
     particle_locations = model.track_particles()
 
-    model.render(kind="mag", particle_locations=particle_locations,
-                 vectors=True)
+    model.render(kind="mag", particle_locations=particle_locations)
