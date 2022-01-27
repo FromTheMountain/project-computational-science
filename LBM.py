@@ -20,12 +20,9 @@ c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
               (-1, 1), (-1, -1), (1, -1)])
 w = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36])
 
-viscosity = 0.02
-TAU = 3*viscosity + 0.5
-DELTA_T = 1
-DELTA_X = 1
 Q = 9
-cssq = (1/3) * (DELTA_X / DELTA_T)**2
+cssq = (1/3)
+NUMBER_OF_CELLS = 129
 
 WALL = 1
 INLET = 2
@@ -65,6 +62,25 @@ class LBM:
         self.wall = wall
         self.inlet = inlet
         self.outlet = outlet
+
+        # Model parameters
+        # # Physical (These values are in SI units (m, s, kg).)
+        self.l_p = 0.03
+        self.u_p = 0.02 / 60
+        self.t_p = self.l_p / self.u_p
+        self.nu_p = 1.47e-5
+
+        # Dimensionless
+        self.dx = 1 / self.width
+        self.dt = 2e-4
+        self.Re = self.l_p**2 / (self.t_p * self.nu_p)
+        self.u_d = (self.t_p / self.l_p) * self.u_p
+
+        # Lattice-Boltzmann
+        self.u_lb = (self.dt / self.dx) * self.u_d
+        self.nu_lb = (self.dt / self.dx**2) * (1 / self.Re)
+        self.tau = (self.nu_lb / cssq) + 0.5
+
 
         # Set the initial macroscopic quantities
         self.rho = np.ones((self.width, self.height))
@@ -140,7 +156,7 @@ class LBM:
         assert np.min(f_eq) >= 0, "Simulation violated stability condition"
 
         # collision
-        self.f = self.f * (1 - (DELTA_T / TAU)) + (DELTA_T / TAU) * f_eq
+        self.f = self.f * (1 - (self.dt / self.tau)) + (self.dt / self.tau) * f_eq
 
         # streaming
         for i in range(Q):
@@ -152,7 +168,7 @@ class LBM:
         self.f[wall, :] = boundary_f
 
         # Set the velocity vector at inlets
-        inlet_ux = 0.2
+        inlet_ux = self.u_lb
         inlet_uy = 0.0
         inlet_rho = self.rho[self.inlet]
 
@@ -284,5 +300,4 @@ if __name__ == '__main__':
 
     particle_locations = model.track_particles()
 
-    model.render(kind="mag", particle_locations=particle_locations,
-                 vectors=True)
+    model.render(kind="mag")
