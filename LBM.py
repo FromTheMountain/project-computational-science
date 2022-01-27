@@ -68,11 +68,7 @@ class LBM:
 
         # Set the initial macroscopic quantities
         self.rho = np.ones((self.width, self.height))
-        # self.rho += 0.05 * np.random.randn(WIDTH, HEIGHT)
         self.ux = np.full((self.width, self.height), 0.0)
-
-        # Lid driven cavity
-        # self.ux[:, -2:] = 0.3
 
         self.uy = np.zeros((self.width, self.height))
 
