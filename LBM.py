@@ -240,7 +240,8 @@ class LBM:
         Tracks the motions of particles through the airflow.
         """
         num_particles = 20
-        mass_factor = 0.5
+        mass = 0.1
+        drag_coefficient = 0.47 # coefficient of a sphere
 
         # Spawn num_particles particles at evenly spaced intervals.
         particle_locations = np.zeros((ITERATIONS, num_particles, 2))
@@ -274,17 +275,39 @@ class LBM:
                 vx, vy = particle_velocities[i, j] # Particle velocity
                 ux, uy = ux_func([i, x, y])[0], uy_func([i, x, y])[0] # Air velocity
 
-                new_vx = ((1 - mass_factor) * vx + mass_factor * ux) / 2
-                new_vy = ((1 - mass_factor) * vy + mass_factor * uy) / 2
+                # Velocity of particle relative to fluid
+                rel_vx = ux - vx
+                rel_vy = uy - vy
+
+                # Drag force
+                density = model.rho_snapshots[i//SNAP_INTERVAL, int(x), int(y)]
+                f_x = 0.5 * density * rel_vx**2 * drag_coefficient
+                f_y = 0.5 * density * rel_vy**2 * drag_coefficient
+
+                # Acceleration
+                a_x = f_x / mass
+                a_y = f_y / mass
+
+                # Compute new velocity
+                new_vx = vx + a_x * DELTA_T
+                new_vy = vy + a_y * DELTA_T
+
+                if i < 150 and j == 0:
+                    print(vx)
+                    print(f_x)
+                    print(rel_vx)
+                    print(new_vx)
+                    print()
+
                 particle_velocities[i + 1, j] = [new_vx, new_vy]
 
-                dx = new_vx
-                dy = new_vy
+                dx = new_vx * DELTA_T
+                dy = new_vy * DELTA_T
 
                 # Keep particles inside boundaries
                 new_x = min(max(0, x + dx), self.width - 1)
                 new_y = min(max(0, y + dy), self.height - 1)
-                particle_locations[i+1, j] = [new_x, new_y]
+                particle_locations[i + 1, j] = [new_x, new_y]
 
         return particle_locations
 
