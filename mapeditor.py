@@ -27,7 +27,8 @@ class CellType(Enum):
     Wall = 1
     Inlet = 2
     Outlet = 3
-    Person = 4
+    Infected = 4
+    Susceptible = 5
 
 
 class Tool(Enum):
@@ -57,7 +58,7 @@ def get_map_from_file(file):
 
 
 cmap = colors.ListedColormap(
-    ["k", "forestgreen", "r", "blue", "purple"])
+    ["black", "forestgreen", "red", "blue", "purple", "lightcoral"])
 
 
 class MapEditor:
