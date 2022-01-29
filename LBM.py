@@ -6,7 +6,7 @@ from matplotlib import colors
 import matplotlib.patches as mpatches
 
 # Model
-ITERATIONS = 200
+ITERATIONS = 2000
 SNAP_INTERVAL = 1
 SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
 
@@ -103,8 +103,6 @@ class LBM:
         print(self.u_star)
         print(self.Re)
 
-        self.num_particles = 10
-        particle_interval = 4
         # spwan_rate per iteration
         self.spawn_rate = int(self.num_particles / ITERATIONS)
 
@@ -389,7 +387,7 @@ if __name__ == '__main__':
     model = LBM(wall, inlet, outlet, infected, susceptible, num_particles=10)
 
     infection_rate, removed_rate = \
-        model.render(kind="mag", vectors=True, save_file='animation.html')
+        model.render(kind="mag", vectors=True, save_file='animation.gif')
 
     fig, ax = plt.subplots()
 

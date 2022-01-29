@@ -26,18 +26,19 @@ def experiment1():
             len(inlet_rho), model.rho[model.inlet], inlet_ux, 0.0)
 
     # First simulation: vary the inlet velocity from 0 to 0.5
-    for i, inlet_ux in enumerate([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]):
+    for i, inlet_ux in enumerate([0.2]):
         print("Iteration {}, inlet_ux {}".format(i, inlet_ux))
 
         wall, inlet, outlet, infected, susceptible = \
-            LBM.LBM.read_map_from_file('maps/concept1')
+            LBM.LBM.read_map_from_file('maps/concept2')
 
         model = LBM.LBM(wall, inlet, outlet, infected, susceptible,
                         num_particles=100,
                         inlet_handler=lambda m: inlet_handler(m, inlet_ux))
 
         infection_rate, removed_rate = \
-            model.render(kind="mag", vectors=True, save_file=None)
+            model.render(kind="mag", vectors=True,
+            save_file='results/exp1-{}.gif'.format(i))
 
         _, ax = plt.subplots()
 
