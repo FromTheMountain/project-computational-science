@@ -20,6 +20,8 @@ import argparse
 # Size of the undo buffer, which stores previous maps to facilitate undo.
 # Should be small for large map sizes, but can be big otherwise.
 UNDO_BUFFER_SIZE = 10
+DIRECTIONS = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0),
+              (1, 1)]
 
 
 class CellType(Enum):
@@ -35,6 +37,7 @@ class Tool(Enum):
     Brush = 0
     Square = 1
     Line = 2
+    Bucket = 3
 
 
 def get_map_from_file(file):
@@ -264,6 +267,32 @@ class MapEditor:
 
         return self.filter_out_of_bounds(row, col)
 
+    def bucket_fill(self):
+        """
+        Fills cells of the type the user's cursor is pointing at to the type
+        specified by self.cell_type, starting at the cursor's location and
+        then following the trail of cells of the same type.
+        """
+        x, y = self.x1, self.y1
+        type_to_fill = self.map[y, x]
+
+        cells_to_fill = np.zeros((self.height, self.width), bool)
+        stack = [(y, x)]
+
+        # Grid DFS
+        while stack:
+            y, x = stack.pop()
+            for dy, dx in DIRECTIONS:
+                if 0 <= y + dy < self.height \
+                        and 0 <= x + dx < self.width \
+                        and not cells_to_fill[y + dy, x + dx] \
+                        and self.map[y + dy, x + dx] == type_to_fill:
+                    cells_to_fill[y + dy, x + dx] = True
+                    stack.append((y + dy, x + dx))
+
+        self.map[cells_to_fill] = self.cell_type
+        self.update_view()
+
     def handle_click(self, event):
         """
         The function to be fired when the user clicks on the canvas.
@@ -279,6 +308,12 @@ class MapEditor:
         self.edit_radius = self.tk_edit_radius.get()
         self.mouse_held = True
 
+        if self.tool == Tool.Bucket.value:
+            self.bucket_fill()
+
+        # The brush and square tool should immediately start painting.
+        self.place_paint(self.x1, self.y1)
+
     def handle_move(self, event):
         """
         The function to be fired when the mouse is moved around on the canvas.
@@ -287,7 +322,15 @@ class MapEditor:
             return
 
         x, y = int(event.xdata), int(event.ydata)
-        if self.mouse_held and self.tool == Tool.Brush.value:
+
+        if self.mouse_held and \
+                self.tool in {Tool.Brush.value, Tool.Square.value}:
+            self.place_paint(x, y)
+
+    def place_paint(self, x, y):
+        # Place paint at position (x, y) in the shape of a circle or square,
+        # depending on the selected tool.
+        if self.tool == Tool.Brush.value:
             # Color all cells that are closer than self.edit_radius to
             # (xdata, ydata) with the selected cell type
             row, col = self.points_in_circle(x, y, self.edit_radius)
@@ -295,7 +338,7 @@ class MapEditor:
             self.map[row, col] = self.cell_type
 
             self.update_view()
-        elif self.mouse_held and self.tool == Tool.Square.value:
+        elif self.tool == Tool.Square.value:
             row, col = self.points_in_square(x, y, self.edit_radius)
 
             self.map[row, col] = self.cell_type

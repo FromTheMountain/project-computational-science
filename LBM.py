@@ -191,8 +191,8 @@ class LBM:
             self.f[:, :, i] = np.roll(self.f[:, :, i], c[i], axis=(0, 1))
 
         # bounce back
-        self.ux[wall] = 0
-        self.uy[wall] = 0
+        self.ux[self.wall] = 0
+        self.uy[self.wall] = 0
 
         boundary_f = self.f[self.wall, :]
         boundary_f = boundary_f[:, [0, 3, 4, 1, 2, 7, 8, 5, 6]]
@@ -282,6 +282,11 @@ class LBM:
                   ncol=len(clr))
         fig.tight_layout()
 
+        # Initialise particles
+        self.infections = np.zeros((ITERATIONS))
+        self.removed = np.zeros((ITERATIONS))
+        self.particles_exited = set()
+
         anim = FuncAnimation(fig, self.animate, interval=1, frames=ITERATIONS,
                              repeat=True, fargs=[ax, kind, vectors])
 
@@ -289,8 +294,12 @@ class LBM:
             anim.save(save_file)
             # anim.save("simulation/1/" + str(idx) + ".png", writer="imagemagick")
             fig.savefig('last_frame.png')
-            infection_rate = np.cumsum(self.infections)
-            removed_rate = np.cumsum(self.removed)
+        else:
+            for i in range(ITERATIONS):
+                self.animate(i, ax, kind, vectors)
+
+        infection_rate = np.cumsum(self.infections)
+        removed_rate = np.cumsum(self.removed)
 
         return infection_rate, removed_rate
 
@@ -326,10 +335,6 @@ class LBM:
         """
         if it == 0:
             # initialize the particles
-            self.infections = np.zeros((ITERATIONS))
-            self.removed = np.zeros((ITERATIONS))
-            self.particles_exited = set()
-
             for i in range(self.num_particles):
                 # Spawn a new particle
                 # Randomly choose an infected cell.

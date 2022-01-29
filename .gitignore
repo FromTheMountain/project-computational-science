@@ -5,3 +5,5 @@ debug.py
 *.gif
 *.html
 *.png
+
+.vscode/
