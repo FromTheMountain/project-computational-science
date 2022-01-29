@@ -1,4 +1,3 @@
-import time
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -6,14 +5,8 @@ from scipy.interpolate import RegularGridInterpolator
 from matplotlib import colors
 import matplotlib.patches as mpatches
 
-# The initial distribution function takes values from a normal distribution.
-# Large values for NORMAL_DIST_MEAN (>= 0.5, more or less) cause the
-# distribution function to explode; this behaviour does not show up with
-# smaller values.
-NORMAL_DIST_STDDEV = 0.3
-
 # Model
-ITERATIONS = 300
+ITERATIONS = 200
 SNAP_INTERVAL = 1
 SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
 
@@ -22,8 +15,8 @@ c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
               (-1, 1), (-1, -1), (1, -1)])
 w = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36])
 
-viscosity = 0.2
-TAU = 3*viscosity + 0.5
+viscosity = 0.2  # kinematic lattice viscosity
+TAU = 3*viscosity + 0.5  # section 7.2.1.1 in LBPP
 DELTA_T = 1
 DELTA_X = 1
 Q = 9
@@ -32,38 +25,9 @@ cssq = (1/3) * (DELTA_X / DELTA_T)**2
 AIR, WALL, INLET, OUTLET, INFECTED, SUSCEPTIBLE = [0, 1, 2, 3, 4, 5]
 
 
-def read_map_from_file(filename):
-    with open(filename, 'r') as f:
-        iterator = enumerate(f)
-
-        _, firstline = next(iterator)
-        width, height = [int(x) for x in firstline.strip().split(',')]
-
-        wall = np.zeros((width, height), bool)
-        inlet = np.zeros((width, height), bool)
-        outlet = np.zeros((width, height), bool)
-        infected = np.zeros((width, height), bool)
-        susceptible = np.zeros((width, height), bool)
-
-        for i, line in iterator:
-            for j, c in enumerate(line.strip()):
-                c = int(c)
-                if c == WALL:
-                    wall[j, width-i] = True
-                elif c == INLET:
-                    inlet[j, width-i] = True
-                elif c == OUTLET:
-                    outlet[j, width-i] = True
-                elif c == INFECTED:
-                    infected[j, width-i] = True
-                elif c == SUSCEPTIBLE:
-                    susceptible[j, width-i] = True
-
-    return wall, inlet, outlet, infected, susceptible
-
-
 class LBM:
-    def __init__(self, wall, inlet, outlet, infected, susceptible):
+    def __init__(self, wall, inlet, outlet, infected, susceptible,
+                 num_particles=0, inlet_handler=None, outlet_handler=None):
         # Get the map details
         assert wall.shape == inlet.shape == outlet.shape
         self.width, self.height = wall.shape
@@ -74,13 +38,20 @@ class LBM:
         self.infected = infected
         self.susceptible = susceptible
 
+        self.num_particles = num_particles
+
+        self.inlet_handler = inlet_handler if inlet_handler is not None else \
+            LBM.inlet_handler
+        self.outlet_handler = outlet_handler if outlet_handler is not None \
+            else LBM.outlet_handler
+
+        if inlet_handler == None:
+            self.inlet_handler = LBM.inlet_handler
+
         # Set the initial macroscopic quantities
         self.rho = np.ones((self.width, self.height))
         # self.rho += 0.05 * np.random.randn(WIDTH, HEIGHT)
         self.ux = np.full((self.width, self.height), 0.0)
-
-        # Lid driven cavity
-        # self.ux[:, -2:] = 0.3
 
         self.uy = np.zeros((self.width, self.height))
 
@@ -89,21 +60,82 @@ class LBM:
                                      self.uy.flatten()).reshape(
             (self.width, self.height, Q))
 
-        self.rho_snapshots = np.zeros((SNAPSHOTS, self.width, self.height))
-        self.ux_snapshots = np.copy(self.rho_snapshots)
-        self.uy_snapshots = np.copy(self.rho_snapshots)
+        # Know variables
+        self.w = 10                 # meter
+        self.delta_x = 0.01        # meter
+        self.w_star = self.w / self.delta_x     # needed grid width 500
+        self.C_l = self.delta_x
 
-    def run(self):
-        """
-        Initialise and run the simulation.
-        """
-        for i in range(ITERATIONS):
-            self.lbm_iteration(i)
+        # self.air_visc = 1.225   # kg/m3
+        # self.C_rho = self.air_visc
 
-            if i % SNAP_INTERVAL == 0 or i == ITERATIONS - 1:
-                self.rho_snapshots[i//SNAP_INTERVAL] = self.rho
-                self.ux_snapshots[i//SNAP_INTERVAL] = self.ux
-                self.uy_snapshots[i//SNAP_INTERVAL] = self.uy
+        self.C_L = self.delta_x
+        rho_0_start = 1
+
+        # between 0.5 - 2
+        self.tau = self.tau_star = 0.51
+
+        self.kin_visc_air = 1.48e-5
+        self.cs = (1/3)
+        self.delta_t = self.cs * (self.tau_star - 0.5) * (self.delta_x**2 / self.kin_visc_air)
+        self.C_t = self.delta_t
+        self.dt = 1
+
+        print("delta", self.dt)
+
+        self.C_u = self.C_l  / self.C_t
+        print("C u ",self.C_u)
+
+        self.airflow_u = 0.1                      # airflow m/s in building 5-8 m/s
+        self.u_lb = self.airflow_u / self.C_u
+        print(self.u_lb)
+
+        # Model parameters
+        self.compute_lbm_parameters()
+
+
+    ### Compute remaining lbm parameters
+    def compute_lbm_parameters(self):
+
+        print("---------Model para----------")
+        self.u_star = self.airflow_u * self.w**2 / 8 * self.kin_visc_air
+        self.Re = self.u_star * self.w / self.kin_visc_air
+        print(self.u_star)
+        print(self.Re)
+
+        self.num_particles = 10
+        particle_interval = 4
+        # spwan_rate per iteration
+        self.spawn_rate = int(self.num_particles / ITERATIONS)
+
+    def read_map_from_file(filename):
+        with open(filename, 'r') as f:
+            iterator = enumerate(f)
+
+            _, firstline = next(iterator)
+            width, height = [int(x) for x in firstline.strip().split(',')]
+
+            wall = np.zeros((width, height), bool)
+            inlet = np.zeros((width, height), bool)
+            outlet = np.zeros((width, height), bool)
+            infected = np.zeros((width, height), bool)
+            susceptible = np.zeros((width, height), bool)
+
+            for i, line in iterator:
+                for j, c in enumerate(line.strip()):
+                    c = int(c)
+                    if c == WALL:
+                        wall[j, width-i] = True
+                    elif c == INLET:
+                        inlet[j, width-i] = True
+                    elif c == OUTLET:
+                        outlet[j, width-i] = True
+                    elif c == INFECTED:
+                        infected[j, width-i] = True
+                    elif c == SUSCEPTIBLE:
+                        susceptible[j, width-i] = True
+
+        return wall, inlet, outlet, infected, susceptible
 
     def moment_update(f):
         """
@@ -152,225 +184,209 @@ class LBM:
         assert np.min(f_eq) >= 0, "Simulation violated stability condition"
 
         # collision
-        self.f = self.f * (1 - (DELTA_T / TAU)) + (DELTA_T / TAU) * f_eq
+        self.f = self.f * (1 - (self.dt / self.tau_star)) + (self.dt / self.tau_star) * f_eq
 
         # streaming
         for i in range(Q):
             self.f[:, :, i] = np.roll(self.f[:, :, i], c[i], axis=(0, 1))
 
         # bounce back
+        self.ux[wall] = 0
+        self.uy[wall] = 0
+
         boundary_f = self.f[self.wall, :]
         boundary_f = boundary_f[:, [0, 3, 4, 1, 2, 7, 8, 5, 6]]
         self.f[self.wall, :] = boundary_f
 
-        # Set the velocity vector at inlets
-        inlet_ux = 0.5
-        inlet_uy = 0.0
-        inlet_rho = self.rho[self.inlet]
+        # Handle inlets and outlets. Note that "self.inlet_handler" does not
+        # necessarily refer to LBM.inlet_handler, it could also be a custom
+        # callback function provided by the user when initialising the model.
+        self.inlet_handler(self)
+        self.outlet_handler(self)
 
-        self.f[self.inlet] = LBM.get_equilibrium(len(inlet_rho),
-                                                 self.rho[self.inlet],
+    def inlet_handler(model):
+        """
+        The default inlet handler for an LBM model.
+        """
+        # Set the velocity vector at inlets
+        inlet_ux = model.u_lb
+        inlet_uy = 0.0
+        inlet_rho = model.rho[model.inlet]
+
+        model.f[model.inlet] = LBM.get_equilibrium(len(inlet_rho),
+                                                 model.rho[model.inlet],
                                                  inlet_ux, inlet_uy)
 
+    def outlet_handler(model):
+        """
+        The default outlet handler for an LBM model.
+        """
         # Set the density at outlets
-        outlet_rho = 0.5
-        outlet_ux = self.ux[self.outlet]
-        outlet_uy = self.uy[self.outlet]
-        self.f[self.outlet] = LBM.get_equilibrium(len(outlet_ux), outlet_rho,
-                                                  outlet_ux, outlet_uy)
+        outlet_rho = 0.9
+        outlet_ux = model.ux[model.outlet]
+        outlet_uy = model.uy[model.outlet]
+        model.f[model.outlet] = LBM.get_equilibrium(len(outlet_ux), outlet_rho,
+                                                    outlet_ux, outlet_uy)
 
-    def render(self, particle_locations=None, kind="density",
-               vectors=False, save=False):
+    def render(self, kind="density", vectors=False, save_file=None):
         """
         Render the values collected by the model with matplotlib. Argument
         "kind" should be of value "density" or "mag"
         """
-
+        # Initialize plots
         fig, ax = plt.subplots()
 
-        if particle_locations is not None:
-
-            particles = particle_locations.shape[1]
-
-            particle_plots = [plt.plot(particle_locations[0, i, 0] + 1/2,
-                                    particle_locations[0, i, 1] + 1/2,
-                                    'ro', markersize=10)[0]
-                            for i in range(particles)]
-
-
-        init_vals = np.sqrt(model.ux_snapshots[0]**2 +
-                            model.uy_snapshots[0]**2) if kind == "mag" \
-            else model.rho_snapshots[0]
+        # First layer: fluid plot
         vmin = 0 if kind == "mag" else 0.8
         vmax = 0.2 if kind == "mag" else 1.2
-        fluid_plot = plt.imshow(init_vals.T, origin="lower", vmin=vmin,
-                                vmax=vmax, cmap=plt.get_cmap("jet"))
-        plt.colorbar(fluid_plot)
 
-        people_data = (WALL * self.wall + INLET * self.inlet +
-                       OUTLET * self.outlet + INFECTED * self.infected +
-                       SUSCEPTIBLE * self.susceptible)
+        self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
+                                              dtype=float),
+                                     vmin=vmin, vmax=vmax,
+                                     cmap=plt.get_cmap("jet"))
+        plt.colorbar(self.fluid_plot)
 
-        labelscolors = ["lightgreen", "blue", "red", "purple", "yellow", "lightcoral"]
-
-        cmap = colors.ListedColormap(labelscolors)
-
-        people_plot = plt.imshow(people_data.T, origin="lower", alpha=0.6, cmap=cmap)
-
-        red_patch = mpatches.Patch(color=labelscolors[1], label='Wall')
-        blue_patch = mpatches.Patch(color=labelscolors[2], label='Inlet')
-        purple_patch = mpatches.Patch(color=labelscolors[3], label='Outlet')
-        yellow_patch = mpatches.Patch(color=labelscolors[4], label='Infected')
-        lightcoral_patch = mpatches.Patch(color=labelscolors[5], label='Susceptible')
-
-        ax.legend(handles=[red_patch, blue_patch, purple_patch, yellow_patch, lightcoral_patch], loc='upper center', bbox_to_anchor=(0.5, -0.05),
-          fancybox=True, shadow=True, ncol=len(labelscolors))
-        fig.tight_layout()
-
-
+        # Second layer: vector plot
         if vectors:
             x, y = np.meshgrid(np.linspace(0, self.width-1, 20, dtype=int),
                                np.linspace(0, self.height-1, 20, dtype=int))
-            u = model.ux_snapshots[0, x, y]
-            v = model.uy_snapshots[0, x, y]
+            u = self.ux[x, y]
+            v = self.uy[x, y]
 
             # Set scale to 0.5 for lid driven cavity, 4 for Karman vortex
-            vector_plot = plt.quiver(x, y, u, v, scale=4)
+            self.vector_plot = plt.quiver(x, y, u, v, scale=4)
 
+        # Third layer: particle plots
+        if self.num_particles:
+            self.particle_locations = np.zeros((self.num_particles, 2), float)
+            self.particle_plots = [plt.plot(0, 0, 'ro', markersize=10)[0]
+                                   for i in range(self.num_particles)]
 
-        def animate(i):
-            ax.set_title("{}, iteration {}".format(kind, i))
+        # Fourth layer: map plot
+        map_data = (WALL * self.wall + INLET * self.inlet +
+                    OUTLET * self.outlet + INFECTED * self.infected +
+                    SUSCEPTIBLE * self.susceptible)
 
-            if particle_locations is not None:
-                for j in range(particles):
-                    particle_plots[j].set_data(
-                        particle_locations[i, j, 0] + 1/2,
-                        particle_locations[i, j, 1] + 1/2)
+        clr = ["lightgreen", "blue", "red", "purple", "yellow", "lightcoral"]
+        cmap = colors.ListedColormap(clr)
 
+        self.map_plot = plt.imshow(map_data.T, alpha=0.6, origin="lower",
+                                   cmap=cmap)
 
-            vals = np.sqrt(model.ux_snapshots[i//SNAP_INTERVAL]**2 +
-                           model.uy_snapshots[i//SNAP_INTERVAL]**2) \
-                if kind == "mag" else model.rho_snapshots[i//SNAP_INTERVAL]
-            fluid_plot.set_data(vals.T)
+        patches = [mpatches.Patch(color=c, label=name) for c, name in
+                   zip(clr[1:],
+                       ['Wall', 'Inlet', 'Outlet', 'Infected', 'Susceptible'])]
 
-            people_data = (WALL * self.wall + INLET * self.inlet +
-                       OUTLET * self.outlet + INFECTED * self.infected +
-                       SUSCEPTIBLE * self.susceptible).T
-            people_plot.set_data(people_data)
+        ax.legend(handles=patches, loc='upper center',
+                  bbox_to_anchor=(0.5, -0.05), fancybox=True, shadow=True,
+                  ncol=len(clr))
+        fig.tight_layout()
 
+        anim = FuncAnimation(fig, self.animate, interval=1, frames=ITERATIONS,
+                             repeat=True, fargs=[ax, kind, vectors])
 
-            if vectors:
-                u = model.ux_snapshots[i//SNAP_INTERVAL, x, y]
-                v = model.uy_snapshots[i//SNAP_INTERVAL, x, y]
+        if save_file:
+            anim.save(save_file)
+            # anim.save("simulation/1/" + str(idx) + ".png", writer="imagemagick")
+            fig.savefig('last_frame.png')
+            infection_rate = np.cumsum(self.infections)
+            removed_rate = np.cumsum(self.removed)
 
-                vector_plot.set_UVC(u, v)
+        return infection_rate, removed_rate
 
+    def animate(self, it, ax, kind, vectors):
+        print("Running animate on iteration {} of kind {}".format(it, kind),
+              end="\r")
+        # Perform an LBM iteration and update fluid plot
+        self.lbm_iteration(it)
 
-        anim = FuncAnimation(fig, animate, interval=1, frames=ITERATIONS,
-                             repeat=True)
+        vals = np.sqrt(self.ux**2 + self.uy**2) if kind == "mag" else self.rho
+        self.fluid_plot.set_data(vals.T)
 
-        plt.show()
+        # Update the vector plot
+        if vectors:
+            x, y = np.meshgrid(np.linspace(0, self.width-1, 20, dtype=int),
+                               np.linspace(0, self.height-1, 20, dtype=int))
+            u, v = self.ux[x, y], self.uy[x, y]
 
-        if save:
-            anim.save(time.strftime("%Y%m%d-%H%M%S.gif"))
+            self.vector_plot.set_UVC(u, v)
 
-    def track_particles(self):
+        # Update particle locations and plots
+        self.update_particles(it)
+
+        for i, loc in enumerate(self.particle_locations):
+            self.particle_plots[i].set_data(*loc)
+
+        # Update the plot title
+        ax.set_title("{}, iteration {}".format(kind, it))
+
+    def update_particles(self, it):
         """
         Tracks the motions of particles through the airflow.
         """
-        particle_interval = 4
-        num_particles = ITERATIONS // (particle_interval - 1)
+        if it == 0:
+            # initialize the particles
+            self.infections = np.zeros((ITERATIONS))
+            self.removed = np.zeros((ITERATIONS))
+            self.particles_exited = set()
 
-        # Spawn num_particles particles at evenly spaced intervals.
-        particle_locations = np.zeros((ITERATIONS, num_particles, 2))
-
-        infections = np.zeros((ITERATIONS))
-        removed = np.zeros((ITERATIONS))
-
-        ux_func = RegularGridInterpolator(
-            (np.arange(0, ITERATIONS, SNAP_INTERVAL), np.arange(self.width),
-             np.arange(self.height)), model.ux_snapshots)
-
-        uy_func = RegularGridInterpolator(
-            (np.arange(0, ITERATIONS, SNAP_INTERVAL), np.arange(self.width),
-             np.arange(self.height)), model.uy_snapshots)
-
-        infection_counter = 0
-        removed_counter = 0
-
-        particles_exited = []
-        for i in range(ITERATIONS - 1):
-
-            if i % (particle_interval) == 0:
+            for i in range(self.num_particles):
                 # Spawn a new particle
-                # Randomly choose an inlet cell.
-                inlet_indices = np.where(model.infected)
-                idx = np.random.randint(len(inlet_indices[0]))
+                # Randomly choose an infected cell.
+                infected_indices = np.where(self.infected)
+                idx = np.random.randint(len(infected_indices[0]))
 
-                print(i, i // particle_interval)
+                self.particle_locations[i] = \
+                    infected_indices[0][idx], infected_indices[1][idx]
 
-                particle_locations[i, i // (ITERATIONS // num_particles)] = \
-                    inlet_indices[0][idx], inlet_indices[1][idx]
+            return
 
-            # Add the linearly interpolated velocity vector to the location of
-            # the point.
+        # it > 0
+        ux_func = RegularGridInterpolator((np.arange(self.width),
+                                           np.arange(self.height)),
+                                          self.ux)
 
+        uy_func = RegularGridInterpolator((np.arange(self.width),
+                                           np.arange(self.height)),
+                                          self.uy)
 
-            for j in range(i // (ITERATIONS // num_particles) + 1):
-                x, y = particle_locations[i, j]
+        # Add the linearly interpolated velocity vector to the location of
+        # the point.
+        for i in range(self.num_particles):
+            x, y = self.particle_locations[i]
+            # check whether particle intercepted a person
 
-                # check whether particle intercepted a person
+            if i in self.particles_exited:
+                continue
 
-                if j not in particles_exited:
-                    if model.susceptible[int(x)][int(y)]:
-                        infection_counter += 1
-                        infections[i] += 1
-                        particle_locations[i+1, j] = [self.width-1, self.height-1]
-                        particles_exited.append(int(j))
-                    elif model.outlet[int(x)][int(y)]:
-                        removed_counter += 1
-                        removed[i] += 1
-                        particle_locations[i+1, j] = [self.width-1, self.height-1]
-                        particles_exited.append(int(j))
-                    else:
-                        dx, dy = ux_func([i, x, y])[0], uy_func([i, x, y])[0]
+            if self.susceptible[int(round(x)), int(round(y))]:
+                self.infections[i] += 1
+                self.particles_exited.add(i)
+                self.particle_locations[i] = [0, 0]
+            elif self.outlet[int(round(x)), int(round(y))]:
+                self.removed[i] += 1
+                self.particles_exited.add(i)
+                self.particle_locations[i] = [0, 0]
+            else:
+                dx, dy = ux_func([x, y])[0], uy_func([x, y])[0]
 
-                        # Keep particles inside boundaries
-                        new_x = min(max(0, x + dx), self.width - 1)
-                        new_y = min(max(0, y + dy), self.height - 1)
-                        particle_locations[i+1, j] = [new_x, new_y]
+                # Keep particles inside boundaries
+                new_x = min(max(0, x + dx), self.width - 1)
+                new_y = min(max(0, y + dy), self.height - 1)
 
-
-        print("Infection counter", infection_counter)
-        infection_rate = np.cumsum(infections)
-
-        print("removed counter", removed_counter)
-        removed_rate = np.cumsum(removed)
-
-        print(particles_exited)
-        """"
-        nd array of infection of time/it.
-
-        """
-
-        return particle_locations, infection_rate, removed_rate
+                self.particle_locations[i] = [new_x, new_y]
 
 
 if __name__ == '__main__':
-    # To change from lid driven cavity to Karman vortex, only two changes need
-    # to be made. First, the filename below needs to be modified to
-    # './maps/karmanvortex'. Second, the scale parameter in line 201 needs to
-    # be adjusted to 4.
     wall, inlet, outlet, infected, susceptible = \
-        read_map_from_file('./maps/person_in_room')
+        LBM.read_map_from_file('./maps/concept1')
 
-    model = LBM(wall, inlet, outlet, infected, susceptible)
-    model.run()
+    model = LBM(wall, inlet, outlet, infected, susceptible, num_particles=10)
 
-    particle_locations, infection_rate, removed_rate = model.track_particles()
+    infection_rate, removed_rate = \
+        model.render(kind="mag", vectors=True, save_file='animation.html')
 
-    plt.plot(infection_rate)
-    plt.plot(removed_rate)
+    fig, ax = plt.subplots()
 
-    model.render(kind="mag", particle_locations=particle_locations,
-                 vectors=True)
+    ax.plot(infection_rate)
+    ax.plot(removed_rate)
