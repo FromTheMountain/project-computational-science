@@ -21,7 +21,6 @@ c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
 w = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36])
 
 Q = 9
-cssq = (1/3)
 NUMBER_OF_CELLS = 129
 
 WALL = 1
@@ -73,13 +72,16 @@ class LBM:
         # Dimensionless
         self.dx = 1 / self.width
         self.dt = 2e-4
+        self.cssq = (1/3) * (self.dx / self.dt)**2
         self.Re = self.l_p**2 / (self.t_p * self.nu_p)
         self.u_d = (self.t_p / self.l_p) * self.u_p
 
         # Lattice-Boltzmann
         self.u_lb = (self.dt / self.dx) * self.u_d
         self.nu_lb = (self.dt / self.dx**2) * (1 / self.Re)
-        self.tau = (self.nu_lb / cssq) + 0.5
+        self.tau = (self.nu_lb / self.cssq) + 0.5
+
+
 
 
         # Set the initial macroscopic quantities
@@ -88,7 +90,7 @@ class LBM:
 
         self.uy = np.zeros((self.width, self.height))
 
-        self.f = LBM.get_equilibrium(self.width * self.height,
+        self.f = self.get_equilibrium(self.width * self.height,
                                      self.rho.flatten(), self.ux.flatten(),
                                      self.uy.flatten()).reshape(
             (self.width, self.height, Q))
@@ -120,7 +122,7 @@ class LBM:
 
         return rho, ux, uy
 
-    def get_equilibrium(n, rho, ux, uy):
+    def get_equilibrium(self, n, rho, ux, uy):
         """
         Calculate the equalibrium distribution for the BGK operator.
         """
@@ -133,9 +135,9 @@ class LBM:
         f_eq = np.zeros((n, 9), dtype=float)
 
         for i in range(Q):
-            f_eq[:, i] = w[i] * rho * (1 + udotc[:, i] / cssq +
-                                       (udotc[:, i])**2 / (2 * cssq**2) -
-                                       udotu / (2 * cssq))
+            f_eq[:, i] = w[i] * rho * (1 + udotc[:, i] / self.cssq +
+                                       (udotc[:, i])**2 / (2 * self.cssq**2) -
+                                       udotu / (2 * self.cssq))
 
         return f_eq
 
@@ -147,7 +149,7 @@ class LBM:
         self.rho, self.ux, self.uy = LBM.moment_update(self.f)
 
         # equilibrium
-        f_eq = LBM.get_equilibrium(self.width * self.height,
+        f_eq = self.get_equilibrium(self.width * self.height,
                                    self.rho.flatten(), self.ux.flatten(),
                                    self.uy.flatten()).reshape(
                                        (self.width, self.height, Q))
@@ -172,7 +174,7 @@ class LBM:
         inlet_uy = 0.0
         inlet_rho = self.rho[self.inlet]
 
-        self.f[self.inlet] = LBM.get_equilibrium(len(inlet_rho),
+        self.f[self.inlet] = self.get_equilibrium(len(inlet_rho),
                                                  self.rho[self.inlet],
                                                  inlet_ux, inlet_uy)
 
@@ -180,7 +182,7 @@ class LBM:
         outlet_rho = 0.9
         outlet_ux = self.ux[self.outlet]
         outlet_uy = self.uy[self.outlet]
-        self.f[self.outlet] = LBM.get_equilibrium(len(outlet_ux), outlet_rho,
+        self.f[self.outlet] = self.get_equilibrium(len(outlet_ux), outlet_rho,
                                                   outlet_ux, outlet_uy)
 
     def render(self, particle_locations=None, kind="density",
