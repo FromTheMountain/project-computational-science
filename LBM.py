@@ -4,6 +4,7 @@ from matplotlib.animation import FuncAnimation
 from scipy.interpolate import RegularGridInterpolator
 from matplotlib import colors
 import matplotlib.patches as mpatches
+import cv2
 
 # Model
 ITERATIONS = 2000
@@ -24,19 +25,19 @@ cssq = (1/3) * (DELTA_X / DELTA_T)**2
 
 AIR, WALL, INLET, OUTLET, INFECTED, SUSCEPTIBLE = [0, 1, 2, 3, 4, 5]
 
-
 class LBM:
-    def __init__(self, wall, inlet, outlet, infected, susceptible,
+    def __init__(self, wall, inlet, outlet, infected, susceptible, size,
                  num_particles=0, inlet_handler=None, outlet_handler=None):
         # Get the map details
         assert wall.shape == inlet.shape == outlet.shape
-        self.width, self.height = wall.shape
+        self.width = self.height = size
 
-        self.wall = wall
-        self.inlet = inlet
-        self.outlet = outlet
-        self.infected = infected
-        self.susceptible = susceptible
+        # Resize all the arrays
+        self.wall = cv2.resize(wall.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
+        self.inlet = cv2.resize(inlet.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
+        self.outlet = cv2.resize(outlet.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
+        self.infected = cv2.resize(infected.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
+        self.susceptible = cv2.resize(susceptible.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
 
         self.num_particles = num_particles
 
@@ -384,7 +385,7 @@ if __name__ == '__main__':
     wall, inlet, outlet, infected, susceptible = \
         LBM.read_map_from_file('./maps/concept1')
 
-    model = LBM(wall, inlet, outlet, infected, susceptible, num_particles=10)
+    model = LBM(wall, inlet, outlet, infected, susceptible, 100, num_particles=10)
 
     infection_rate, removed_rate = \
         model.render(kind="mag", vectors=True, save_file='animation.gif')
