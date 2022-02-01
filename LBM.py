@@ -26,7 +26,7 @@ cssq = (1/3) * (DELTA_X / DELTA_T)**2
 AIR, WALL, INLET, OUTLET, INFECTED, SUSCEPTIBLE = [0, 1, 2, 3, 4, 5]
 
 # for know hardcoden
-susceptible_centroids = np.array([(20,95), (80,80), (80,50), (80,27), (50,5)])
+susceptible_centroids = np.array([(18,93), (79,80), (79,51), (80,26), (49,5)])
 NUM_SUSCEP_CENTROIDS = len(susceptible_centroids)
 
 class LBM:
@@ -246,6 +246,10 @@ class LBM:
                                      cmap=plt.get_cmap("jet"))
         cbar = plt.colorbar(self.fluid_plot)
         cbar.set_label("Air speed (m/s)", rotation=270, labelpad=15)
+        
+        for idx,val in enumerate(susceptible_centroids):
+          x,y = val
+          plt.text(x, y, str(idx), fontsize = 10, color='white')
 
         # Second layer: vector plot
         if vectors:
@@ -418,7 +422,7 @@ if __name__ == '__main__':
 
     print(infection_rate)
     ax.plot(infection_rate.T)
-    # ax.legend(susceptible_centroids)
+    ax.legend(range(len(susceptible_centroids)))
     fig.savefig('infection_rate.png')
     # ax.plot(removed_rate)
     # fig.savefig('simulation/2000it/removed_rate.png')
