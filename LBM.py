@@ -7,7 +7,7 @@ import matplotlib.patches as mpatches
 import cv2
 
 # Model
-ITERATIONS = 10000
+ITERATIONS = 1000
 SNAP_INTERVAL = 1
 SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
 
@@ -15,27 +15,20 @@ SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
 c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
               (-1, 1), (-1, -1), (1, -1)])
 w = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36])
-
-viscosity = 0.2  # kinematic lattice viscosity
-TAU = 3*viscosity + 0.5  # section 7.2.1.1 in LBPP
-DELTA_T = 1
-DELTA_X = 1
 Q = 9
-cssq = (1/3) * (DELTA_X / DELTA_T)**2
 
 AIR, WALL, INLET, OUTLET, INFECTED, SUSCEPTIBLE = [0, 1, 2, 3, 4, 5]
 
-# for know hardcoden
+# for now hardcoden
 susceptible_centroids = np.array([(20,95), (80,80), (80,50), (80,27), (50,5)])
 NUM_SUSCEP_CENTROIDS = len(susceptible_centroids)
 
 class LBM:
-    def __init__(self, size=100, map_name='concept1', num_particles=0,
-                inlet_handler=None, outlet_handler=None):
+    def __init__(self, size=100, map_name='concept1', particles=True,
+                inlet_handler=None, outlet_handler=None, init="default"):
         # Get the map details
         self.width = self.height = size
         self.map_scaling_factor = 1.0
-        self.num_particles = num_particles
         wall, inlet, outlet, infected, susceptible = \
             self.read_map_from_file('./maps/' + map_name)
 
@@ -47,16 +40,34 @@ class LBM:
         self.infected = infected
         self.susceptible = susceptible
 
-        # every 20 it spawn particles
-        self.spawn_rate = 20             # every x iterations
-        self.spawn_amount_at_rate = 5   # x particles
+        # Whether or not particles need to be simulated.
+        self.particles = particles
 
-        self.num_particles = (ITERATIONS//self.spawn_rate) * self.spawn_amount_at_rate
+        # every 20 it spawn particles
+        if self.particles:
+            self.spawn_rate = 20             # every x iterations
+            self.spawn_amount_at_rate = 1   # x particles
+
+            self.num_particles = (ITERATIONS//self.spawn_rate) * self.spawn_amount_at_rate
+            self.particle_nr = 0
 
         self.inlet_handler = inlet_handler if inlet_handler is not None else \
             LBM.inlet_handler
         self.outlet_handler = outlet_handler if outlet_handler is not None \
             else LBM.outlet_handler
+
+        if init == "default":
+            self.init_default()
+        elif init == "cavity":
+            self.init_liddrivencavity()
+
+        print("=" * 10 + " Model values " + "=" * 10)
+        print(f"dx {self.dx:.4f} m/unit")
+        print(f"dt {self.dt:.4f} s/step")
+        print(f"Tau {self.tau:.4f} m^2/s")
+        print(f"Re {self.Re:.4f}")
+        print(f"nu_lb {self.nu_lb:.4f} m^2/s")
+        print(f"u_lb {self.u_lb:.4f} units/step")
 
         # Set the initial macroscopic quantities
         self.rho = np.ones((self.width, self.height))
@@ -64,36 +75,45 @@ class LBM:
 
         self.uy = np.zeros((self.width, self.height))
 
-        self.f = LBM.get_equilibrium(self.width * self.height,
+        self.f = self.get_equilibrium(self.width * self.height,
                                      self.rho.flatten(), self.ux.flatten(),
                                      self.uy.flatten()).reshape(
             (self.width, self.height, Q))
 
-        total_time = 2.5 * 60 # s
+    def init_default(self):
+        total_time = (ITERATIONS * 2.5 / 500) * 60 # s
 
         # Known parameters (SI units)
-        self.L_p = 10       # m
+        self.L_p = 1        # m
         self.nu_p = 1.48e-5 # m^2/s
-        self.u_p = 0.1      # m/s
+        self.u_p = 1        # m/s
         self.dt = total_time / ITERATIONS       # s
 
         # Compute other variables
-        self.dx = self.L_p / size
-        self.u_lb = self.u_p * (self.dt / self.dx)
+        self.dx = self.L_p / self.width
         self.Re = (self.u_p * self.L_p) / self.nu_p
+        self.u_lb = self.u_p * (self.dt / self.dx)
         self.L_lb = self.L_p / self.dx
         self.nu_lb = (self.u_lb * self.L_lb) / self.Re
 
-        self.tau = 3 * self.nu_lb + 0.5
+        self.cssq = 1/3
+        self.tau = self.nu_lb / self.cssq + 0.5
 
-        print("=" * 10 + " Model values " + "=" * 10)
-        print(f"dx {self.dx:.2f} m/unit")
-        print(f"dt {self.dt:.2f} s/step")
-        print(f"Tau {self.tau:.2f} m^2/s")
-        print(f"Re {self.Re:.2f}")
-        print(f"u_lb {self.u_lb:.2f} units/step")
+    def init_liddrivencavity(self, Re=100.0):
+        # Known parameters (SI units)
+        self.Re = Re
+        self.L_lb = self.width
+        self.L_p = 1        # m
+        self.u_p = 1        # m/s
+        self.u_lb = 0.2
 
-        self.particle_nr = 0
+        # Compute other variables
+        self.dx = self.L_p / self.L_lb
+        self.nu_lb = (self.u_lb * self.L_lb) / self.Re
+        self.dt = self.Re * self.nu_lb / self.L_lb**2       # s
+
+        self.cssq = 1/3
+        self.tau = self.nu_lb / self.cssq + 0.5
 
     def read_map_from_file(self, filename):
         with open(filename, 'r') as f:
@@ -143,7 +163,7 @@ class LBM:
 
         return rho, ux, uy
 
-    def get_equilibrium(n, rho, ux, uy):
+    def get_equilibrium(self, n, rho, ux, uy):
         """
         Calculate the equalibrium distribution for the BGK operator.
         """
@@ -156,9 +176,9 @@ class LBM:
         f_eq = np.zeros((n, 9), dtype=float)
 
         for i in range(Q):
-            f_eq[:, i] = w[i] * rho * (1 + udotc[:, i] / cssq +
-                                       (udotc[:, i])**2 / (2 * cssq**2) -
-                                       udotu / (2 * cssq))
+            f_eq[:, i] = w[i] * rho * (1 + udotc[:, i] / self.cssq +
+                                       (udotc[:, i])**2 / (2 * self.cssq**2) -
+                                       udotu / (2 * self.cssq))
 
         return f_eq
 
@@ -170,7 +190,7 @@ class LBM:
         self.rho, self.ux, self.uy = LBM.moment_update(self.f)
 
         # equilibrium
-        f_eq = LBM.get_equilibrium(self.width * self.height,
+        f_eq = self.get_equilibrium(self.width * self.height,
                                    self.rho.flatten(), self.ux.flatten(),
                                    self.uy.flatten()).reshape(
                                        (self.width, self.height, Q))
@@ -179,7 +199,8 @@ class LBM:
         assert np.min(f_eq) >= 0 ,f"Simulation violated stability condition at {np.unravel_index(np.argmin(f_eq), f_eq.shape)}"
 
         # collision
-        self.f = self.f * (1 - (self.dt / self.tau)) + (self.dt / self.tau) * f_eq
+        self.f = self.f * (1 - (1 / self.tau)) + (1 / self.tau) * f_eq
+        # self.f = self.f * (1 - (self.dt / self.tau)) + (self.dt / self.tau) * f_eq
 
         # streaming
         for i in range(Q):
@@ -196,7 +217,7 @@ class LBM:
         # Handle inlets and outlets. Note that "self.inlet_handler" does not
         # necessarily refer to LBM.inlet_handler, it could also be a custom
         # callback function provided by the user when initialising the model.
-        self.inlet_handler(self, it )
+        self.inlet_handler(self, it)
         self.outlet_handler(self)
 
     def inlet_handler(model, it):
@@ -210,10 +231,9 @@ class LBM:
 
         inlet_ux = model.u_lb
         inlet_uy = 0.0
-        # inlet_rho = model.rho[model.inlet]
         inlet_rho = np.ones_like(model.rho[model.inlet], dtype=float)
 
-        model.f[model.inlet] = LBM.get_equilibrium(len(inlet_rho),
+        model.f[model.inlet] = model.get_equilibrium(len(inlet_rho),
                                                  inlet_rho,
                                                  inlet_ux, inlet_uy)
 
@@ -225,7 +245,7 @@ class LBM:
         outlet_rho = model.rho[model.outlet]
         outlet_ux = model.ux[model.outlet]
         outlet_uy = model.uy[model.outlet]
-        model.f[model.outlet] = LBM.get_equilibrium(len(outlet_ux), outlet_rho,
+        model.f[model.outlet] = model.get_equilibrium(len(outlet_ux), outlet_rho,
                                                     outlet_ux, outlet_uy)
 
     def render(self, kind="density", vectors=False, save_file=None):
@@ -242,7 +262,7 @@ class LBM:
 
         self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
                                               dtype=float),
-                                     vmin=0.0, vmax=self.u_p,
+                                     vmin=0.0, vmax=self.u_lb,
                                      cmap=plt.get_cmap("jet"))
         cbar = plt.colorbar(self.fluid_plot)
         cbar.set_label("Air speed (m/s)", rotation=270, labelpad=15)
@@ -258,7 +278,7 @@ class LBM:
             self.vector_plot = plt.quiver(x, y, u, v, scale=4)
 
         # Third layer: particle plots
-        if self.num_particles:
+        if self.particles:
             self.particle_locations = np.zeros((self.num_particles, 2), float)
             self.particle_plots = [plt.plot(0, 0, 'ro', markersize=2)[0]
                                    for i in range(self.num_particles)]
@@ -283,12 +303,11 @@ class LBM:
                   ncol=len(clr))
         fig.tight_layout()
 
-        # Initialise particles
-        self.infections = np.zeros((NUM_SUSCEP_CENTROIDS, ITERATIONS))
-        self.removed = np.zeros((ITERATIONS))
-        self.particles_exited = set()
-
-        # print(self.infections.shape)
+        if self.particles:
+            # Initialise particles
+            self.infections = np.zeros((NUM_SUSCEP_CENTROIDS, ITERATIONS))
+            self.removed = np.zeros((ITERATIONS))
+            self.particles_exited = set()
 
         anim = FuncAnimation(fig, self.animate, interval=1, frames=ITERATIONS,
                              repeat=True, fargs=[ax, kind, vectors])
@@ -303,11 +322,19 @@ class LBM:
             for i in range(ITERATIONS):
                 self.animate(i, ax, kind, vectors)
 
+        if self.particles:
+            fig, ax = plt.subplots()
 
-        infection_rate = np.cumsum(self.infections, axis=1)
-        removed_rate = np.cumsum(self.removed)
+            infection_rate = np.cumsum(self.infections, axis=1)
+            removed_rate = np.cumsum(self.removed)
 
-        return infection_rate, removed_rate
+            print(infection_rate)
+            ax.plot(infection_rate.T)
+            # ax.legend(susceptible_centroids)
+            fig.savefig('infection_rate.png')
+            ax.plot(removed_rate)
+            fig.savefig('removed_rate.png')
+
 
     def animate(self, it, ax, kind, vectors):
         print("Running animate on iteration {} of {} of kind {}".format(it, ITERATIONS, kind),
@@ -327,10 +354,11 @@ class LBM:
             self.vector_plot.set_UVC(u, v)
 
         # Update particle locations and plots
-        self.update_particles(it)
+        if self.particles:
+            self.update_particles(it)
 
-        for i, loc in enumerate(self.particle_locations):
-            self.particle_plots[i].set_data(*loc)
+            for i, loc in enumerate(self.particle_locations):
+                self.particle_plots[i].set_data(*loc)
 
         # Update the plot title
         ax.set_title("{}, iteration {}".format(kind, it))
@@ -409,16 +437,6 @@ class LBM:
 
 
 if __name__ == '__main__':
-    model = LBM(map_name='concept5')
+    model = LBM(map_name='liddrivencavity', particles=False, init="cavity")
 
-    infection_rate, removed_rate = \
-        model.render(kind="mag", vectors=True, save_file='animation')
-
-    fig, ax = plt.subplots()
-
-    print(infection_rate)
-    ax.plot(infection_rate.T)
-    # ax.legend(susceptible_centroids)
-    fig.savefig('infection_rate.png')
-    # ax.plot(removed_rate)
-    # fig.savefig('simulation/2000it/removed_rate.png')
+    model.render(kind="mag", vectors=True, save_file='animation')
