@@ -4,9 +4,10 @@ from matplotlib.animation import FuncAnimation
 from scipy.interpolate import RegularGridInterpolator
 from matplotlib import colors
 import matplotlib.patches as mpatches
+import cv2
 
 # Model
-ITERATIONS = 1000
+ITERATIONS = 2000
 SNAP_INTERVAL = 1
 SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
 
@@ -30,13 +31,21 @@ AIR, WALL, INLET, OUTLET, INFECTED, SUSCEPTIBLE = [0, 1, 2, 3, 4, 5]
 susceptible_centroids = np.array([(20,95), (80,80), (80,50), (80,27), (50,5)])
 NUM_SUSCEP_CENTROIDS = len(susceptible_centroids)
 
-
 class LBM:
-    def __init__(self, wall, inlet, outlet, infected, susceptible,
+    def __init__(self, wall, inlet, outlet, infected, susceptible, size,
                  num_particles=0, inlet_handler=None, outlet_handler=None):
         # Get the map details
         assert wall.shape == inlet.shape == outlet.shape
-        self.width, self.height = wall.shape
+        self.width = self.height = size
+
+        # Resize all the arrays
+        self.wall = cv2.resize(wall.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
+        self.inlet = cv2.resize(inlet.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
+        self.outlet = cv2.resize(outlet.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
+        self.infected = cv2.resize(infected.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
+        self.susceptible = cv2.resize(susceptible.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
+
+        self.num_particles = num_particles
 
         self.wall = wall
         self.inlet = inlet
@@ -57,7 +66,6 @@ class LBM:
 
         # Set the initial macroscopic quantities
         self.rho = np.ones((self.width, self.height))
-        # self.rho += 0.05 * np.random.randn(WIDTH, HEIGHT)
         self.ux = np.full((self.width, self.height), 0.0)
 
         self.uy = np.zeros((self.width, self.height))
@@ -79,7 +87,8 @@ class LBM:
         self.C_L = self.delta_x
         rho_0_start = 1
 
-        self.tau = self.tau_star = 0.505         # between 0.5 - 2
+        # between 0.5 - 2
+        self.tau = self.tau_star = 0.51
 
         self.kin_visc_air = 1.48e-5
         self.cs = (1/3)
@@ -101,7 +110,6 @@ class LBM:
 
         self.particle_nr = 0
 
-
     ### Compute remaining lbm parameters
     def compute_lbm_parameters(self):
 
@@ -117,7 +125,6 @@ class LBM:
     def read_map_from_file(filename):
         with open(filename, 'r') as f:
             iterator = enumerate(f)
-
             _, firstline = next(iterator)
             width, height = [int(x) for x in firstline.strip().split(',')]
 
@@ -348,7 +355,6 @@ class LBM:
         ax.set_title("{}, iteration {}".format(kind, it))
 
 
-
     def update_particles(self, it):
         """
         Tracks the motions of particles through the airflow.
@@ -426,7 +432,7 @@ if __name__ == '__main__':
         LBM.read_map_from_file('./maps/concept4')
 
     print('speedfactor 1.9')
-    model = LBM(wall, inlet, outlet, infected, susceptible)   # num_particles=
+    model = LBM(wall, inlet, outlet, infected, susceptible, 100)   # num_particles=
 
     infection_rate, removed_rate = \
         model.render(kind="mag", vectors=True, save_file='animation')
@@ -439,4 +445,3 @@ if __name__ == '__main__':
     fig.savefig('simulation/2000it/infection_rate.png')
     # ax.plot(removed_rate)
     # fig.savefig('simulation/2000it/removed_rate.png')
-
