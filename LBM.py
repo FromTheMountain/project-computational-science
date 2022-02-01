@@ -7,7 +7,7 @@ import matplotlib.patches as mpatches
 import cv2
 
 # Model
-ITERATIONS = 2000
+ITERATIONS = 500
 SNAP_INTERVAL = 1
 SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
 
@@ -32,20 +32,16 @@ susceptible_centroids = np.array([(20,95), (80,80), (80,50), (80,27), (50,5)])
 NUM_SUSCEP_CENTROIDS = len(susceptible_centroids)
 
 class LBM:
-    def __init__(self, wall, inlet, outlet, infected, susceptible, size,
-                 num_particles=0, inlet_handler=None, outlet_handler=None):
+    def __init__(self, size=100, map_name='concept1', num_particles=0,
+                inlet_handler=None, outlet_handler=None):
         # Get the map details
-        assert wall.shape == inlet.shape == outlet.shape
         self.width = self.height = size
-
-        # Resize all the arrays
-        self.wall = cv2.resize(wall.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
-        self.inlet = cv2.resize(inlet.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
-        self.outlet = cv2.resize(outlet.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
-        self.infected = cv2.resize(infected.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
-        self.susceptible = cv2.resize(susceptible.astype('uint8'), (size, size), cv2.INTER_NEAREST).astype(bool)
-
+        self.map_scaling_factor = 1.0
         self.num_particles = num_particles
+        wall, inlet, outlet, infected, susceptible = \
+            self.read_map_from_file('./maps/' + map_name)
+
+        assert wall.shape == inlet.shape == outlet.shape
 
         self.wall = wall
         self.inlet = inlet
@@ -53,9 +49,9 @@ class LBM:
         self.infected = infected
         self.susceptible = susceptible
 
-        # every 20 it spawn particles 
+        # every 20 it spawn particles
         self.spawn_rate = 20             # every x iterations
-        self.spawn_amount_at_rate = 5   # x particles 
+        self.spawn_amount_at_rate = 5   # x particles
 
         self.num_particles = (ITERATIONS//self.spawn_rate) * self.spawn_amount_at_rate
 
@@ -112,21 +108,19 @@ class LBM:
 
     ### Compute remaining lbm parameters
     def compute_lbm_parameters(self):
-
         print("---------Model para----------")
         self.u_star = self.airflow_u * self.w**2 / 8 * self.kin_visc_air
         self.Re = self.u_star * self.w / self.kin_visc_air
         print(self.u_star)
         print("Reynolds number:", self.Re)
 
-        # spwan_rate per iteration
-        # self.spawn_rate = int(self.num_particles / ITERATIONS)
-
-    def read_map_from_file(filename):
+    def read_map_from_file(self, filename):
         with open(filename, 'r') as f:
             iterator = enumerate(f)
             _, firstline = next(iterator)
             width, height = [int(x) for x in firstline.strip().split(',')]
+            assert width == height, "Map width does not match map height"
+            self.map_scaling_factor = self.width / width
 
             wall = np.zeros((width, height), bool)
             inlet = np.zeros((width, height), bool)
@@ -147,6 +141,13 @@ class LBM:
                         infected[j, width-i] = True
                     elif c == SUSCEPTIBLE:
                         susceptible[j, width-i] = True
+
+        # Resize all the arrays
+        wall = cv2.resize(wall.astype('uint8'), (self.width, self.height), cv2.INTER_NEAREST).astype(bool)
+        inlet = cv2.resize(inlet.astype('uint8'), (self.width, self.height), cv2.INTER_NEAREST).astype(bool)
+        outlet = cv2.resize(outlet.astype('uint8'), (self.width, self.height), cv2.INTER_NEAREST).astype(bool)
+        infected = cv2.resize(infected.astype('uint8'), (self.width, self.height), cv2.INTER_NEAREST).astype(bool)
+        susceptible = cv2.resize(susceptible.astype('uint8'), (self.width, self.height), cv2.INTER_NEAREST).astype(bool)
 
         return wall, inlet, outlet, infected, susceptible
 
@@ -221,20 +222,21 @@ class LBM:
         """
         The default inlet handler for an LBM model.
         """
-        # Set the velocity vector at inlets    
-        period = 50  
+        # Set the velocity vector at inlets
+        period = 50
         # model.u_lb *= (0.5 * np.sin(2 * np.pi * it/period) + 0.1)
-        model.u_lb *= (0.4 * np.sin(2 * np.pi * it/period) + 0.2)
+        # model.u_lb *= (0.4 * np.sin(2 * np.pi * it/period) + 0.2)
 
-        model.u_lb += 0.07
+        model.u_lb = 0.2
         print(model.u_lb)
 
-        inlet_ux = model.u_lb 
+        inlet_ux = model.u_lb
         inlet_uy = 0.0
-        inlet_rho = model.rho[model.inlet]
+        # inlet_rho = model.rho[model.inlet]
+        inlet_rho = np.ones_like(model.rho[model.inlet], dtype=float)
 
         model.f[model.inlet] = LBM.get_equilibrium(len(inlet_rho),
-                                                 model.rho[model.inlet],
+                                                 inlet_rho,
                                                  inlet_ux, inlet_uy)
 
     def outlet_handler(model):
@@ -242,7 +244,7 @@ class LBM:
         The default outlet handler for an LBM model.
         """
         # Set the density at outlets
-        outlet_rho = 0.80
+        outlet_rho = model.rho[model.outlet]
         outlet_ux = model.ux[model.outlet]
         outlet_uy = model.uy[model.outlet]
         model.f[model.outlet] = LBM.get_equilibrium(len(outlet_ux), outlet_rho,
@@ -314,13 +316,13 @@ class LBM:
 
         if save_file:
             anim.save("simulation/2000it/_"  + ".html",  writer="html")
-       
-            # for i in range(ITERATIONS):  
-            #     self.animate(i, ax, kind, vectors)    
+
+            # for i in range(ITERATIONS):
+            #     self.animate(i, ax, kind, vectors)
             #     fig.savefig('simulation/concept2/' + str(i) +  '.png')
         else:
             for i in range(ITERATIONS):
-                self.animate(i, ax, kind, vectors)    
+                self.animate(i, ax, kind, vectors)
 
 
         infection_rate = np.cumsum(self.infections, axis=1)
@@ -359,7 +361,7 @@ class LBM:
         """
         Tracks the motions of particles through the airflow.
         """
-      
+
         if it % self.spawn_rate == 0:
             for _ in range(self.spawn_amount_at_rate):
                 # Spawn a new particle
@@ -372,7 +374,7 @@ class LBM:
 
                     self.particle_locations[self.particle_nr] = \
                         infected_indices[0][idx], infected_indices[1][idx]
-                    self.particle_nr += 1 
+                    self.particle_nr += 1
                     # print("part", self.particle_nr)
 
         # it > 0
@@ -394,19 +396,19 @@ class LBM:
                 continue
 
             if self.susceptible[int(round(x)), int(round(y))]:
-                
+
                 try:
                     # FIND CLOSEST NODE
-                    node= int(x), int(y) 
+                    node= int(x), int(y)
                     nodes = susceptible_centroids
                     dist_2 = np.sum((nodes - node)**2, axis=1)
                     closest = np.argmin(dist_2)
-                    
+
                     self.infections[closest][i] += 1
                 except:
                     # gebeurde een keer, bij 2000 kunnen we best 1 particle missen
                     print("Idk!!")
-                    pass    
+                    pass
 
                 self.particles_exited.add(i)
                 self.particle_locations[i] = [0, 0]
@@ -417,8 +419,8 @@ class LBM:
             else:
                 dx, dy = ux_func([x, y])[0], uy_func([x, y])[0]
 
-                speed_factor = 1.9
-                
+                speed_factor = self.map_scaling_factor
+
                 dx, dy = speed_factor*dx, speed_factor*dy
                 # Keep particles inside boundaries
                 new_x = min(max(0, x + dx), self.width - 1)
@@ -428,11 +430,8 @@ class LBM:
 
 
 if __name__ == '__main__':
-    wall, inlet, outlet, infected, susceptible = \
-        LBM.read_map_from_file('./maps/concept4')
-
     print('speedfactor 1.9')
-    model = LBM(wall, inlet, outlet, infected, susceptible, 100)   # num_particles=
+    model = LBM(map_name='concept4')   # num_particles=
 
     infection_rate, removed_rate = \
         model.render(kind="mag", vectors=True, save_file='animation')
