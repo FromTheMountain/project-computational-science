@@ -7,11 +7,9 @@ import matplotlib.patches as mpatches
 import cv2
 
 # Model
-ITERATIONS = 500
+ITERATIONS = 10000
 SNAP_INTERVAL = 1
 SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
-
-
 
 # LBM parameters
 c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
@@ -71,48 +69,31 @@ class LBM:
                                      self.uy.flatten()).reshape(
             (self.width, self.height, Q))
 
-        # Know variables
-        self.w = 10                             # meter
-        self.delta_x = 0.01                     # meter
-        self.w_star = self.w / self.delta_x     # needed grid width 500
-        self.C_l = self.delta_x
+        total_time = 2.5 * 60 # s
 
-        # self.air_visc = 1.225   # kg/m3
-        # self.C_rho = self.air_visc
+        # Known parameters (SI units)
+        self.L_p = 10       # m
+        self.nu_p = 1.48e-5 # m^2/s
+        self.u_p = 0.1      # m/s
+        self.dt = total_time / ITERATIONS       # s
 
-        self.C_L = self.delta_x
-        rho_0_start = 1
+        # Compute other variables
+        self.dx = self.L_p / size
+        self.u_lb = self.u_p * (self.dt / self.dx)
+        self.Re = (self.u_p * self.L_p) / self.nu_p
+        self.L_lb = self.L_p / self.dx
+        self.nu_lb = (self.u_lb * self.L_lb) / self.Re
 
-        # between 0.5 - 2
-        self.tau = self.tau_star = 0.51
+        self.tau = 3 * self.nu_lb + 0.5
 
-        self.kin_visc_air = 1.48e-5
-        self.cs = (1/3)
-        self.delta_t = self.cs * (self.tau_star - 0.5) * (self.delta_x**2 / self.kin_visc_air)
-        self.C_t = self.delta_t
-        self.dt = 1
-
-        print("delta", self.dt)
-
-        self.C_u = self.C_l  / self.C_t
-        print("C u ",self.C_u)
-
-        self.airflow_u = 0.1                      # airflow m/s in building 5-8 m/s
-        self.u_lb = self.airflow_u / self.C_u
-        print(self.u_lb)
-
-        # Model parameters
-        self.compute_lbm_parameters()
+        print("=" * 10 + " Model values " + "=" * 10)
+        print(f"dx {self.dx:.2f} m/unit")
+        print(f"dt {self.dt:.2f} s/step")
+        print(f"Tau {self.tau:.2f} m^2/s")
+        print(f"Re {self.Re:.2f}")
+        print(f"u_lb {self.u_lb:.2f} units/step")
 
         self.particle_nr = 0
-
-    ### Compute remaining lbm parameters
-    def compute_lbm_parameters(self):
-        print("---------Model para----------")
-        self.u_star = self.airflow_u * self.w**2 / 8 * self.kin_visc_air
-        self.Re = self.u_star * self.w / self.kin_visc_air
-        print(self.u_star)
-        print("Reynolds number:", self.Re)
 
     def read_map_from_file(self, filename):
         with open(filename, 'r') as f:
@@ -198,7 +179,7 @@ class LBM:
         assert np.min(f_eq) >= 0 ,f"Simulation violated stability condition at {np.unravel_index(np.argmin(f_eq), f_eq.shape)}"
 
         # collision
-        self.f = self.f * (1 - (self.dt / self.tau_star)) + (self.dt / self.tau_star) * f_eq
+        self.f = self.f * (1 - (self.dt / self.tau)) + (self.dt / self.tau) * f_eq
 
         # streaming
         for i in range(Q):
@@ -226,9 +207,6 @@ class LBM:
         period = 50
         # model.u_lb *= (0.5 * np.sin(2 * np.pi * it/period) + 0.1)
         # model.u_lb *= (0.4 * np.sin(2 * np.pi * it/period) + 0.2)
-
-        model.u_lb = 0.2
-        print(model.u_lb)
 
         inlet_ux = model.u_lb
         inlet_uy = 0.0
@@ -264,9 +242,10 @@ class LBM:
 
         self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
                                               dtype=float),
-                                     vmin=vmin, vmax=vmax,
+                                     vmin=0.0, vmax=self.u_p,
                                      cmap=plt.get_cmap("jet"))
-        plt.colorbar(self.fluid_plot)
+        cbar = plt.colorbar(self.fluid_plot)
+        cbar.set_label("Air speed (m/s)", rotation=270, labelpad=15)
 
         # Second layer: vector plot
         if vectors:
@@ -315,7 +294,7 @@ class LBM:
                              repeat=True, fargs=[ax, kind, vectors])
 
         if save_file:
-            anim.save("simulation/2000it/_"  + ".html",  writer="html")
+            anim.save("_"  + ".html",  writer="html")
 
             # for i in range(ITERATIONS):
             #     self.animate(i, ax, kind, vectors)
@@ -407,7 +386,7 @@ class LBM:
                     self.infections[closest][i] += 1
                 except:
                     # gebeurde een keer, bij 2000 kunnen we best 1 particle missen
-                    print("Idk!!")
+                    print("Idk!!!!!!!")
                     pass
 
                 self.particles_exited.add(i)
@@ -430,8 +409,7 @@ class LBM:
 
 
 if __name__ == '__main__':
-    print('speedfactor 1.9')
-    model = LBM(map_name='concept4')   # num_particles=
+    model = LBM(map_name='concept5')
 
     infection_rate, removed_rate = \
         model.render(kind="mag", vectors=True, save_file='animation')
@@ -440,7 +418,7 @@ if __name__ == '__main__':
 
     print(infection_rate)
     ax.plot(infection_rate.T)
-    ax.legend(susceptible_centroids)
-    fig.savefig('simulation/2000it/infection_rate.png')
+    # ax.legend(susceptible_centroids)
+    fig.savefig('infection_rate.png')
     # ax.plot(removed_rate)
     # fig.savefig('simulation/2000it/removed_rate.png')
