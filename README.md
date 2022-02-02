@@ -22,10 +22,7 @@ A simple lattice-Boltzmann implementation for 2D flow simulations
 This LBM code includes:
 - D2Q9 lattice
 - BGK collision
-- bounce back
-- ....
-
-
+- Bounce back
 
 
 # Run simulation
@@ -33,7 +30,7 @@ This LBM code includes:
 Using `Experiment.py` in the repository we can simulate the following
 - Lid driven cavity
 - Karman vortex
-- Own experiment, with our own map created in `maps/concept.txt` using `mapeditor.py`. Setting up behaviour for the inlets and outlets in the function "own_experimetn" in `Experiment.py` will result in different simulations.
+- Own experiment, with our own map created in `maps/concept.txt` using `mapeditor.py`. Setting up behaviour for the inlets and outlets in the function "own_experiment" in `Experiment.py` will result in different simulations.
 - ...
 
 
@@ -58,11 +55,17 @@ Re=100
 ## Map editor
 Using the map editor we can create our own environment with the following map attributes:
 - AIR
+-- Acts as a medium for the fluid.
 - WALL
+-- Causes fluid to bounce back.
 - INLET
+-- Creates a rightward flow of fluid. Velocity is set according to u_lb.
 - OUTLET
+-- Causes fluid to 'exit' the domain.
 - INFECTED
+-- Spawns particles.
 - SUSCEPTIBLE
+-- Eats particles.
 
 
 ## Authors
