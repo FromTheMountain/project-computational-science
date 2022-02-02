@@ -6,10 +6,7 @@ from matplotlib import colors
 import matplotlib.patches as mpatches
 import cv2
 
-# Model
-ITERATIONS = 500
-
-# LBM parameters
+# LBM constants
 c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
               (-1, 1), (-1, -1), (1, -1)])
 w = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1/36, 1/36, 1/36])
@@ -24,31 +21,26 @@ NUM_SUSCEP_CENTROIDS = len(susceptible_centroids)
 
 
 class LBM:
-    def __init__(self, size=100, Re=100.0, map_name='concept1', particles=True,
-                 inlet_handler=None, outlet_handler=None, init="default"):
+    def __init__(self, params, inlet_handler=None,
+                 outlet_handler=None, init="default"):
         # Get the map details
-        self.width = self.height = size
+        self.width = self.height = params['size']
         self.map_scaling_factor = 1.0
-        wall, inlet, outlet, infected, susceptible = \
-            self.read_map_from_file('./maps/' + map_name)
+        self.wall, self.inlet, self.outlet, self.infected, self.susceptible = \
+            self.read_map_from_file('./maps/' + params['map'])
+        self.iters = params['iterations']
 
-        assert wall.shape == inlet.shape == outlet.shape
-
-        self.wall = wall
-        self.inlet = inlet
-        self.outlet = outlet
-        self.infected = infected
-        self.susceptible = susceptible
+        assert self.wall.shape == self.inlet.shape == self.outlet.shape
 
         # Whether or not particles need to be simulated.
-        self.particles = particles
+        self.simulate_particles = params['simulate_particles']
 
         # every 20 it spawn particles
-        if self.particles:
+        if self.simulate_particles:
             self.spawn_rate = 20            # every x iterations
             self.spawn_amount_at_rate = 1   # x particles
 
-            self.num_particles = (ITERATIONS // self.spawn_rate) * \
+            self.num_particles = (self.iters // self.spawn_rate) * \
                 self.spawn_amount_at_rate
             self.particle_nr = 0
 
@@ -57,23 +49,21 @@ class LBM:
         self.outlet_handler = outlet_handler if outlet_handler is not None \
             else LBM.outlet_handler
 
-        if init == "default":
+        if 'reynolds' in params:
+            self.init_reynolds(params['reynolds'])
+        else:
             self.init_default()
-        elif init == "cavity":
-            self.init_liddrivencavity(Re)
-        elif init == "reynolds":
-            self.init_reynolds(Re)
 
         print("=" * 10 + " Model values " + "=" * 10)
-        print(f"Physical width {self.width * self.dx:.4f}m")
-        print(f"Total time {ITERATIONS * self.dt:.4f}s")
+        print(f"{'Physical length':<15} {self.width * self.dx:>10.4f} meters")
+        print(f"{'Total time':<15} {self.iters * self.dt:>10.4f} seconds")
         print()
-        print(f"dx {self.dx:.4f} m/unit")
-        print(f"dt {self.dt:.4f} s/step")
-        print(f"Tau {self.tau:.4f} m^2/s")
-        print(f"Re {self.Re:.4f}")
-        print(f"nu_lb {self.nu_lb:.4f}")
-        print(f"u_lb {self.u_lb:.4f} units/step")
+        print(f"{'dx':<10} {self.dx:>10.4f} m/unit")
+        print(f"{'dt':<10} {self.dt:>10.4f} s/step")
+        print(f"{'tau':<10} {self.tau:>10.4f} m^2/s")
+        print(f"{'Re':<10} {self.Re:>10.4f}")
+        print(f"{'nu_lb':<10} {self.nu_lb:>10.4f} units^2/step")
+        print(f"{'u_lb':<10} {self.u_lb:>10.4f} units/step")
         print()
 
         # Set the initial macroscopic quantities
@@ -88,10 +78,10 @@ class LBM:
 
     def init_default(self):
         # Known parameters (SI units)
-        self.L_p = 1                   # m
-        self.nu_p = 1.48e-5            # m^2/s
-        self.u_p = 0.1                 # m/s
-        self.dt = 1e-2                  # s
+        self.L_p = 1
+        self.nu_p = 1.48e-5
+        self.u_p = 0.1
+        self.dt = 1e-2
 
         # Compute other variables
         self.dx = self.L_p / self.width
@@ -103,27 +93,11 @@ class LBM:
         self.cssq = 1/3
         self.tau = self.nu_lb / self.cssq + 0.5
 
-    def init_liddrivencavity(self, Re):
-        # Known parameters (SI units)
-        self.Re = Re
-        self.L_lb = self.width  # units
-        self.L_p = 1            # m
-        self.u_p = 1            # m/s
-        self.u_lb = 0.2         # units/step
-
-        # Compute other variables
-        self.dx = self.L_p / self.L_lb
-        self.nu_lb = (self.u_lb * self.L_lb) / self.Re
-        self.dt = self.Re * self.nu_lb / self.L_lb**2
-
-        self.cssq = 1/3
-        self.tau = self.nu_lb / self.cssq + 0.5
-
     def init_reynolds(self, Re):
         # Known parameters (SI units)
         self.Re = Re
-        self.L_lb = self.width  # units
-        self.L_p = 30           # m
+        self.L_lb = self.width
+        self.L_p = 30
         self.nu_p = 1.48e-5
         self.u_lb = 0.1
 
@@ -253,10 +227,6 @@ class LBM:
         The default inlet handler for an LBM model.
         """
         # Set the velocity vector at inlets
-        period = 50
-        # model.u_lb *= (0.5 * np.sin(2 * np.pi * it/period) + 0.1)
-        # model.u_lb *= (0.4 * np.sin(2 * np.pi * it/period) + 0.2)
-
         inlet_ux = model.u_lb
         inlet_uy = 0.0
         inlet_rho = np.ones_like(model.rho[model.inlet], dtype=float)
@@ -286,15 +256,12 @@ class LBM:
         fig, ax = plt.subplots()
 
         # First layer: fluid plot
-        vmin = 0 if kind == "mag" else 0.8
-        vmax = 0.2 if kind == "mag" else 1.2
-
         self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
                                               dtype=float),
                                      vmin=0.0, vmax=0.2,
                                      cmap=plt.get_cmap("jet"))
         cbar = plt.colorbar(self.fluid_plot)
-        cbar.set_label("Air speed (m/s)", rotation=270, labelpad=15)
+        cbar.set_label("Speed", rotation=270, labelpad=15)
 
         for idx, val in enumerate(susceptible_centroids):
             x, y = val
@@ -312,7 +279,7 @@ class LBM:
             self.vector_plot = plt.quiver(x, y, u, v, scale=4)
 
         # Third layer: particle plots
-        if self.particles:
+        if self.simulate_particles:
             self.particle_locations = np.zeros((self.num_particles, 2), float)
             self.particle_plots = [plt.plot(0, 0, 'ro', markersize=2)[0]
                                    for i in range(self.num_particles)]
@@ -337,22 +304,25 @@ class LBM:
                   ncol=len(clr))
         fig.tight_layout()
 
-        if self.particles:
-            # Initialise particles
-            self.infections = np.zeros((NUM_SUSCEP_CENTROIDS, ITERATIONS))
-            self.removed = np.zeros((ITERATIONS))
+        # Initialise particles
+        if self.simulate_particles:
+            self.infections = np.zeros((NUM_SUSCEP_CENTROIDS, self.iters))
+            self.removed = np.zeros((self.iters))
             self.particles_exited = set()
 
-        anim = FuncAnimation(fig, self.animate, interval=1, frames=ITERATIONS,
-                             repeat=True, fargs=[ax, kind, vectors])
+        anim = FuncAnimation(fig, self.animate, interval=1,
+                             frames=range(1, self.iters),
+                             repeat=True, fargs=[ax, kind, vectors],
+                             init_func=lambda: self.animate(0, ax, kind,
+                                                            vectors))
 
         if save_file:
-            anim.save("_" + ".html", writer="html")
+            anim.save("simulation.html", writer="html")
         else:
-            for i in range(ITERATIONS):
+            for i in range(self.iters):
                 self.animate(i, ax, kind, vectors)
 
-        if self.particles:
+        if self.simulate_particles:
             fig, ax = plt.subplots()
 
             infection_rate = np.cumsum(self.infections, axis=1)
@@ -366,9 +336,9 @@ class LBM:
             fig.savefig('removed_rate.png')
 
     def animate(self, it, ax, kind, vectors):
-        print("Running animate on iteration {} of {} of kind {}".format(it,
-              ITERATIONS, kind),
-              end="\r")
+        print("Running animate on iteration {} of {} of kind {}".format(it + 1,
+              self.iters, kind),
+              end="\n")
         # Perform an LBM iteration and update fluid plot
         self.lbm_iteration(it)
 
@@ -384,14 +354,14 @@ class LBM:
             self.vector_plot.set_UVC(u, v)
 
         # Update particle locations and plots
-        if self.particles:
+        if self.simulate_particles:
             self.update_particles(it)
 
             for i, loc in enumerate(self.particle_locations):
                 self.particle_plots[i].set_data(*loc)
 
         # Update the plot title
-        ax.set_title("{}, iteration {}".format(kind, it))
+        ax.set_title("{}, i={}, t={:.4f}s".format(kind, it, it * self.dt))
 
     def update_particles(self, it):
         """
@@ -428,11 +398,11 @@ class LBM:
         # the point.
         for i in range(self.particle_nr):
             x, y = self.particle_locations[i]
-            # check whether particle intercepted a person
 
             if i in self.particles_exited:
                 continue
 
+            # check whether particle intercepted a person
             if self.susceptible[int(round(x)), int(round(y))]:
                 # FIND CLOSEST NODE
                 node = int(x), int(y)
@@ -452,7 +422,7 @@ class LBM:
                 dx, dy = ux_func([x, y])[0], uy_func([x, y])[0]
 
                 dx, dy = self.map_scaling_factor * dx, \
-                         self.map_scaling_factor * dy
+                    self.map_scaling_factor * dy
                 # Keep particles inside boundaries
                 new_x = min(max(0, x + dx), self.width - 1)
                 new_y = min(max(0, y + dy), self.height - 1)
@@ -461,6 +431,18 @@ class LBM:
 
 
 if __name__ == '__main__':
-    model = LBM(map_name='concept5')
+    model_params = {
+        "iterations": 1000,
+        "size": 100,
+        "simulate_particles": False,
+        "map": "liddrivencavity",
+        "reynolds": 1000.0,
+        "L_lb": 100,
+        "L_p": 1,
+        "nu_p": 1.48e-5,
+        "u_lb": 0.1
+    }
+
+    model = LBM(model_params)
 
     model.render(kind="mag", vectors=True, save_file='animation')

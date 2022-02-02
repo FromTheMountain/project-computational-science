@@ -2,11 +2,24 @@ import sys
 import os
 import matplotlib.pyplot as plt
 
-import LBM
+from LBM import LBM
 
 
 def lid_driven_cavity():
-    pass
+    model_params = {
+        "iterations": 50,
+        "size": 100,
+        "simulate_particles": False,
+        "map": "liddrivencavity",
+        "reynolds": 1000.0,
+        "L_lb": 100,
+        "L_p": 1,
+        "nu_p": 1.48e-5,
+        "u_lb": 0.1
+    }
+
+    model = LBM(model_params)
+    model.render(kind="mag", save_file="animation")
 
 
 def karman_vortex():
@@ -15,7 +28,7 @@ def karman_vortex():
 
 def experiment1():
     """
-    This experiment aims to anwer the question: what is the influence of the
+    This experiment aims to answer the question: what is the influence of the
     velocity that particles get at an inlet, on the number of particles that
     end up infecting susceptible people?
     """
@@ -30,15 +43,15 @@ def experiment1():
         print("Iteration {}, inlet_ux {}".format(i, inlet_ux))
 
         wall, inlet, outlet, infected, susceptible = \
-            LBM.LBM.read_map_from_file('maps/concept2')
+            LBM.read_map_from_file('maps/concept2')
 
-        model = LBM.LBM(wall, inlet, outlet, infected, susceptible,
-                        num_particles=100,
-                        inlet_handler=lambda m: inlet_handler(m, inlet_ux))
+        model = LBM(wall, inlet, outlet, infected, susceptible,
+                    num_particles=100,
+                    inlet_handler=lambda m: inlet_handler(m, inlet_ux))
 
         infection_rate, removed_rate = \
             model.render(kind="mag", vectors=True,
-            save_file='results/exp1-{}.gif'.format(i))
+                         save_file='results/exp1-{}.gif'.format(i))
 
         _, ax = plt.subplots()
 
@@ -47,19 +60,30 @@ def experiment1():
         ax.legend()
         plt.savefig('results/exp1-{}.png'.format(i))
 
-if len(sys.argv) <= 1:
-    print("Please provide experiment name.")
 
-name = sys.argv[1]
+if __name__ == '__main__':
+    experiment_options = {
+        "cavity": lid_driven_cavity,
+        "karman": karman_vortex
+    }
 
-if not os.path.exists('results'):
-    os.mkdir('results')
+    if len(sys.argv) < 2:
+        print("Please provide an experiment name. Options are:")
 
-if name == "1":
-    experiment1()
-elif name == "ldc":
-    lid_driven_cavity()
-elif name == "karman":
-    karman_vortex()
-else:
-    raise ValueError("Experiment name not recognized.")
+        for key in experiment_options:
+            print(f"- {key}")
+
+        exit(1)
+
+    try:
+        exp_func = experiment_options[sys.argv[1].lower()]
+    except KeyError:
+        print("Experiment does not exist, please try again.")
+
+        exit(1)
+
+    if not os.path.exists('results'):
+        os.mkdir('results')
+
+    # Run the experiment
+    exp_func()
