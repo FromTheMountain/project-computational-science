@@ -31,6 +31,13 @@ Using `Experiment.py` in the repository we can simulate the following
 # Benchmarks
 ## Lid-driven cavity
 ..... 
+Re=100
+
+<img src="validtion/comparison.png" width="420"/>
+
+
+
+
 ## Karman vortex
 .....
 
@@ -38,7 +45,14 @@ Using `Experiment.py` in the repository we can simulate the following
 
 # Applications
 
-- Map editor 
+## Map editor 
+Using the map editor we can create our own environment with the following map attributes:
+- AIR
+- WALL
+- INLET 
+- OUTLET
+- INFECTED
+- SUSCEPTIBLE 
 
 
 ## API Reference
