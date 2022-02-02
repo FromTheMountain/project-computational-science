@@ -27,7 +27,7 @@ Specify in `experiment.py` the initial conditions. After the simualtion is compl
 
 # Benchmarks
 ## Lid-driven cavity
-A simple lid driven cavity test in a 100x100 unit square. Below are the computed velocity norms at Reynolds number = 100, after 1500 iterations.
+A simple lid driven cavity test in a 100x100 unit square. Below are the computed velocity norms at Reynolds number = 100, after 10000 iterations.
 
 A comparison of `uy = f(y)` and `vx = f(x)` at the center of the domain with reference data from <a href="https://www.sciencedirect.com/science/article/pii/0021999182900584">"U. Ghia, K. N. Ghia, C. T. Shin, *High-Re solutions for incompressible flow using Navier-Stokes equations and multigrid method*"</a> (placed in `validation/cavity_vx_ref.txt`). MSE errors for vx and uy are given such that comparison between different LBM can be made.
 
