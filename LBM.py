@@ -402,16 +402,18 @@ class LBM:
             for _ in range(self.spawn_amount_at_rate):
                 # Spawn a new particle
                 # Randomly choose an infected cell.
-
                 if self.particle_nr < self.num_particles:
-
                     infected_indices = np.where(self.infected)
+
+                    # If there are no infected grid cells, then stop.
+                    if len(infected_indices[0]) == 0:
+                        return
+
                     idx = np.random.randint(len(infected_indices[0]))
 
                     self.particle_locations[self.particle_nr] = \
                         infected_indices[0][idx], infected_indices[1][idx]
                     self.particle_nr += 1
-                    # print("part", self.particle_nr)
 
         # it > 0
         ux_func = RegularGridInterpolator((np.arange(self.width),
@@ -432,18 +434,13 @@ class LBM:
                 continue
 
             if self.susceptible[int(round(x)), int(round(y))]:
-                try:
-                    # FIND CLOSEST NODE
-                    node = int(x), int(y)
-                    nodes = susceptible_centroids
-                    dist_2 = np.sum((nodes - node)**2, axis=1)
-                    closest = np.argmin(dist_2)
+                # FIND CLOSEST NODE
+                node = int(x), int(y)
+                nodes = susceptible_centroids
+                dist_2 = np.sum((nodes - node)**2, axis=1)
+                closest = np.argmin(dist_2)
 
-                    self.infections[closest][i] += 1
-                except:
-                    # gebeurde een keer, bij 2000 kunnen we best 1 particle missen
-                    print("Idk!!!!!!!")
-                    pass
+                self.infections[closest][i] += 1
 
                 self.particles_exited.add(i)
                 self.particle_locations[i] = [0, 0]
@@ -464,6 +461,6 @@ class LBM:
 
 
 if __name__ == '__main__':
-    model = LBM(map_name='concept5', init="reynolds", Re=6000.0)
+    model = LBM(map_name='concept5')
 
     model.render(kind="mag", vectors=True, save_file='animation')
