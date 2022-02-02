@@ -22,7 +22,7 @@ A simple lattice-Boltzmann implementation for 2D flow simulations
 This LBM code includes:
 - D2Q9 lattice
 - BGK collision
-- bounce back 
+- bounce back
 - ....
 
 
@@ -30,7 +30,7 @@ This LBM code includes:
 
 # Run simulation
 
-Using `Experiment.py` in the repository we can simulate the following 
+Using `Experiment.py` in the repository we can simulate the following
 - Lid driven cavity
 - Karman vortex
 - Own experiment, with our own map created in `maps/concept.txt` using `mapeditor.py`. Setting up behaviour for the inlets and outlets in the function "own_experimetn" in `Experiment.py` will result in different simulations.
@@ -40,7 +40,7 @@ Using `Experiment.py` in the repository we can simulate the following
 
 # Benchmarks
 ## Lid-driven cavity
-..... 
+.....
 Re=100
 
 <img src="validation/comparison.png" width="420"/>
@@ -55,58 +55,21 @@ Re=100
 
 # Applications
 
-## Map editor 
+## Map editor
 Using the map editor we can create our own environment with the following map attributes:
 - AIR
 - WALL
-- INLET 
+- INLET
 - OUTLET
 - INFECTED
-- SUSCEPTIBLE 
-
-
-## API Reference
-
-#### Get all items
-
-```http
-  GET /api/items
-```
-
-| Parameter | Type     | Description                |
-| :-------- | :------- | :------------------------- |
-| `api_key` | `string` | **Required**. Your API key |
-
-#### Get item
-
-```http
-  GET /api/items/${id}
-```
-
-| Parameter | Type     | Description                       |
-| :-------- | :------- | :-------------------------------- |
-| `id`      | `string` | **Required**. Id of item to fetch |
-
-#### add(num1, num2)
-
-Takes two numbers and returns the sum.
-
-
-## Acknowledgements
-
- - [Awesome Readme Templates](https://awesomeopensource.com/project/elangosundar/awesome-README-templates)
- - [Awesome README](https://github.com/matiassingers/awesome-readme)
- - [How to write a Good readme](https://bulldogjob.com/news/449-how-to-write-a-good-readme-for-your-github-project)
+- SUSCEPTIBLE
 
 
 ## Authors
 
-- [@katherinepeterson](https://www.github.com/octokatherine)
-
-
-## Feedback
-
-If you have any feedback, please reach out to us at fake@fake.com
+- [Jeroen van den Berg]()
+- [Erencan Tatar]()
+- [Robbie Koevoets](mailto:robbie.koevoets@student.uva.nl)
 
 
 ## Installation
@@ -117,7 +80,7 @@ Install my-project with npm
   npm install my-project
   cd my-project
 ```
-    
+
 ![Logo](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/th5xamgrr6se0x5ro4g6.png)
 
 
