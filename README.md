@@ -77,20 +77,12 @@ Using the map editor we can create our own environment with the following map at
 - [Robbie Koevoets]
 
 
-## Installation
-
-Install my-project with npm
-
-```bash
-  npm install my-project
-  cd my-project
+## Dependencies
+To install the required dependencies, simply run `pip install -r requirements.txt`
 ```
-
-![Logo](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/th5xamgrr6se0x5ro4g6.png)
-
-
-
-
-<img src="simulation/infection_rate.png" width="720"/>
-
-
+matplotlib==3.3.2
+numpy==1.19.2
+opencv_contrib_python==4.5.1.48
+pandas==1.1.3
+scipy==1.5.2
+```
