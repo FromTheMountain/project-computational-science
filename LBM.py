@@ -259,10 +259,10 @@ class LBM:
         # First layer: fluid plot
         self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
                                               dtype=float),
-                                     vmin=0.0, vmax=0.2,
+                                     vmin=0.0, vmax=self.u_lb,
                                      cmap=plt.get_cmap("jet"))
         cbar = plt.colorbar(self.fluid_plot)
-        cbar.set_label("Speed", rotation=270, labelpad=15)
+        cbar.set_label("Speed (units/steps)", rotation=270, labelpad=15)
 
         # adding numbers at susceptible_centroids
         for idx, val in enumerate(susceptible_centroids):
@@ -343,6 +343,7 @@ class LBM:
         # Perform an LBM iteration and update fluid plot
         self.lbm_iteration(it)
 
+        # vals = np.sqrt(self.ux**2 + self.uy**2) * (self.dx / self.dt) if kind == "mag" else self.rho
         vals = np.sqrt(self.ux**2 + self.uy**2) if kind == "mag" else self.rho
         self.fluid_plot.set_data(vals.T)
 
@@ -441,7 +442,7 @@ if __name__ == '__main__':
         "L_lb": 100,
         "L_p": 1,
         "nu_p": 1.48e-5,
-        "u_lb": 0.1
+        "u_lb": 0.2
     }
 
     model = LBM(model_params)
