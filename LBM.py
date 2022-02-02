@@ -7,9 +7,7 @@ import matplotlib.patches as mpatches
 import cv2
 
 # Model
-ITERATIONS = 1000
-SNAP_INTERVAL = 1
-SNAPSHOTS = (ITERATIONS - 1)//SNAP_INTERVAL + 1
+ITERATIONS = 10000
 
 # LBM parameters
 c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
@@ -20,12 +18,14 @@ Q = 9
 AIR, WALL, INLET, OUTLET, INFECTED, SUSCEPTIBLE = [0, 1, 2, 3, 4, 5]
 
 # for know hardcoden
-susceptible_centroids = np.array([(18,93), (79,80), (79,51), (80,26), (49,5)])
+susceptible_centroids = np.array([(18, 93), (79, 80), (79, 51), (80, 26),
+                                  (49, 5)])
 NUM_SUSCEP_CENTROIDS = len(susceptible_centroids)
+
 
 class LBM:
     def __init__(self, size=100, map_name='concept1', particles=True,
-                inlet_handler=None, outlet_handler=None, init="default"):
+                 inlet_handler=None, outlet_handler=None, init="default"):
         # Get the map details
         self.width = self.height = size
         self.map_scaling_factor = 1.0
@@ -45,10 +45,11 @@ class LBM:
 
         # every 20 it spawn particles
         if self.particles:
-            self.spawn_rate = 20             # every x iterations
+            self.spawn_rate = 20            # every x iterations
             self.spawn_amount_at_rate = 1   # x particles
 
-            self.num_particles = (ITERATIONS//self.spawn_rate) * self.spawn_amount_at_rate
+            self.num_particles = (ITERATIONS // self.spawn_rate) * \
+                self.spawn_amount_at_rate
             self.particle_nr = 0
 
         self.inlet_handler = inlet_handler if inlet_handler is not None else \
@@ -59,7 +60,7 @@ class LBM:
         if init == "default":
             self.init_default()
         elif init == "cavity":
-            self.init_liddrivencavity()
+            self.init_liddrivencavity(1000.0)
 
         print("=" * 10 + " Model values " + "=" * 10)
         print(f"dx {self.dx:.4f} m/unit")
@@ -68,26 +69,24 @@ class LBM:
         print(f"Re {self.Re:.4f}")
         print(f"nu_lb {self.nu_lb:.4f} m^2/s")
         print(f"u_lb {self.u_lb:.4f} units/step")
+        print()
 
         # Set the initial macroscopic quantities
         self.rho = np.ones((self.width, self.height))
         self.ux = np.full((self.width, self.height), 0.0)
-
         self.uy = np.zeros((self.width, self.height))
 
         self.f = self.get_equilibrium(self.width * self.height,
-                                     self.rho.flatten(), self.ux.flatten(),
-                                     self.uy.flatten()).reshape(
+                                      self.rho.flatten(), self.ux.flatten(),
+                                      self.uy.flatten()).reshape(
             (self.width, self.height, Q))
 
     def init_default(self):
-        total_time = (ITERATIONS * 2.5 / 500) * 60 # s
-
         # Known parameters (SI units)
-        self.L_p = 1        # m
-        self.nu_p = 1.48e-5 # m^2/s
-        self.u_p = 1        # m/s
-        self.dt = total_time / ITERATIONS       # s
+        self.L_p = 20                  # m
+        self.nu_p = 1.48e-5            # m^2/s
+        self.u_p = 1.48e-4 * self.L_p  # m/s
+        self.dt = 0.1                  # s
 
         # Compute other variables
         self.dx = self.L_p / self.width
@@ -102,15 +101,15 @@ class LBM:
     def init_liddrivencavity(self, Re=100.0):
         # Known parameters (SI units)
         self.Re = Re
-        self.L_lb = self.width
-        self.L_p = 1        # m
-        self.u_p = 1        # m/s
-        self.u_lb = 0.2
+        self.L_lb = self.width  # units
+        self.L_p = 1            # m
+        self.u_p = 1            # m/s
+        self.u_lb = 0.2         # units/step
 
         # Compute other variables
         self.dx = self.L_p / self.L_lb
         self.nu_lb = (self.u_lb * self.L_lb) / self.Re
-        self.dt = self.Re * self.nu_lb / self.L_lb**2       # s
+        self.dt = self.Re * self.nu_lb / self.L_lb**2
 
         self.cssq = 1/3
         self.tau = self.nu_lb / self.cssq + 0.5
@@ -144,11 +143,18 @@ class LBM:
                         susceptible[j, width-i] = True
 
         # Resize all the arrays
-        wall = cv2.resize(wall.astype('uint8'), (self.width, self.height), cv2.INTER_NEAREST).astype(bool)
-        inlet = cv2.resize(inlet.astype('uint8'), (self.width, self.height), cv2.INTER_NEAREST).astype(bool)
-        outlet = cv2.resize(outlet.astype('uint8'), (self.width, self.height), cv2.INTER_NEAREST).astype(bool)
-        infected = cv2.resize(infected.astype('uint8'), (self.width, self.height), cv2.INTER_NEAREST).astype(bool)
-        susceptible = cv2.resize(susceptible.astype('uint8'), (self.width, self.height), cv2.INTER_NEAREST).astype(bool)
+        wall = cv2.resize(wall.astype('uint8'), (self.width, self.height),
+                          cv2.INTER_NEAREST).astype(bool)
+        inlet = cv2.resize(inlet.astype('uint8'), (self.width, self.height),
+                           cv2.INTER_NEAREST).astype(bool)
+        outlet = cv2.resize(outlet.astype('uint8'), (self.width, self.height),
+                            cv2.INTER_NEAREST).astype(bool)
+        infected = cv2.resize(infected.astype('uint8'),
+                              (self.width, self.height),
+                              cv2.INTER_NEAREST).astype(bool)
+        susceptible = cv2.resize(susceptible.astype('uint8'),
+                                 (self.width, self.height),
+                                 cv2.INTER_NEAREST).astype(bool)
 
         return wall, inlet, outlet, infected, susceptible
 
@@ -191,16 +197,16 @@ class LBM:
 
         # equilibrium
         f_eq = self.get_equilibrium(self.width * self.height,
-                                   self.rho.flatten(), self.ux.flatten(),
-                                   self.uy.flatten()).reshape(
+                                    self.rho.flatten(), self.ux.flatten(),
+                                    self.uy.flatten()).reshape(
                                        (self.width, self.height, Q))
 
         # Check stability condition
-        assert np.min(f_eq) >= 0 ,f"Simulation violated stability condition at {np.unravel_index(np.argmin(f_eq), f_eq.shape)}"
+        assert np.min(f_eq) >= 0, f"Simulation violated stability \
+            condition at {np.unravel_index(np.argmin(f_eq), f_eq.shape)}"
 
         # collision
         self.f = self.f * (1 - (1 / self.tau)) + (1 / self.tau) * f_eq
-        # self.f = self.f * (1 - (self.dt / self.tau)) + (self.dt / self.tau) * f_eq
 
         # streaming
         for i in range(Q):
@@ -234,8 +240,8 @@ class LBM:
         inlet_rho = np.ones_like(model.rho[model.inlet], dtype=float)
 
         model.f[model.inlet] = model.get_equilibrium(len(inlet_rho),
-                                                 inlet_rho,
-                                                 inlet_ux, inlet_uy)
+                                                     inlet_rho,
+                                                     inlet_ux, inlet_uy)
 
     def outlet_handler(model):
         """
@@ -245,8 +251,9 @@ class LBM:
         outlet_rho = model.rho[model.outlet]
         outlet_ux = model.ux[model.outlet]
         outlet_uy = model.uy[model.outlet]
-        model.f[model.outlet] = model.get_equilibrium(len(outlet_ux), outlet_rho,
-                                                    outlet_ux, outlet_uy)
+        model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
+                                                      outlet_rho,
+                                                      outlet_ux, outlet_uy)
 
     def render(self, kind="density", vectors=False, save_file=None):
         """
@@ -262,14 +269,15 @@ class LBM:
 
         self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
                                               dtype=float),
-                                     vmin=0.0, vmax=self.u_lb,
+                                     vmin=0.0, vmax=0.2,
                                      cmap=plt.get_cmap("jet"))
         cbar = plt.colorbar(self.fluid_plot)
         cbar.set_label("Air speed (m/s)", rotation=270, labelpad=15)
 
-        for idx,val in enumerate(susceptible_centroids):
-          x,y = val
-          plt.text(x, y, str(idx), fontsize = 10, color='white')
+        for idx, val in enumerate(susceptible_centroids):
+            x, y = val
+
+            plt.text(x, y, str(idx), fontsize=10, color='white')
 
         # Second layer: vector plot
         if vectors:
@@ -317,11 +325,7 @@ class LBM:
                              repeat=True, fargs=[ax, kind, vectors])
 
         if save_file:
-            anim.save("_"  + ".html",  writer="html")
-
-            # for i in range(ITERATIONS):
-            #     self.animate(i, ax, kind, vectors)
-            #     fig.savefig('simulation/concept2/' + str(i) +  '.png')
+            anim.save("_" + ".html", writer="html")
         else:
             for i in range(ITERATIONS):
                 self.animate(i, ax, kind, vectors)
@@ -339,9 +343,9 @@ class LBM:
             ax.plot(removed_rate)
             fig.savefig('removed_rate.png')
 
-
     def animate(self, it, ax, kind, vectors):
-        print("Running animate on iteration {} of {} of kind {}".format(it, ITERATIONS, kind),
+        print("Running animate on iteration {} of {} of kind {}".format(it,
+              ITERATIONS, kind),
               end="\r")
         # Perform an LBM iteration and update fluid plot
         self.lbm_iteration(it)
@@ -366,7 +370,6 @@ class LBM:
 
         # Update the plot title
         ax.set_title("{}, iteration {}".format(kind, it))
-
 
     def update_particles(self, it):
         """
@@ -410,7 +413,7 @@ class LBM:
 
                 try:
                     # FIND CLOSEST NODE
-                    node= int(x), int(y)
+                    node = int(x), int(y)
                     nodes = susceptible_centroids
                     dist_2 = np.sum((nodes - node)**2, axis=1)
                     closest = np.argmin(dist_2)
@@ -441,6 +444,6 @@ class LBM:
 
 
 if __name__ == '__main__':
-    model = LBM(map_name='liddrivencavity', particles=False, init="cavity")
+    model = LBM(map_name='concept5')
 
     model.render(kind="mag", vectors=True, save_file='animation')
