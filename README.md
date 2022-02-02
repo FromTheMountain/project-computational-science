@@ -32,14 +32,18 @@ A simple lid driven cavity test in a 100x100 unit square. Below are the computed
 A comparison of `uy = f(y)` and `vx = f(x)` at the center of the domain with reference data from <a href="https://www.sciencedirect.com/science/article/pii/0021999182900584">"U. Ghia, K. N. Ghia, C. T. Shin, *High-Re solutions for incompressible flow using Navier-Stokes equations and multigrid method*"</a> (placed in `validation/cavity_vx_ref.txt`). MSE errors for vx and uy are given such that comparison between different LBM can be made.
 
 <p align="center">
-  
+
 <img src="validation/comparison_10k_it.png" width="420"/>
-  
+
 </p>
 
+# Examples
 
+An animation of the lid driven cavity (`python3 experiments.py cavity`) : <img src="img/lid_driven_cavity.gif" width="720"/>
 
-# Applications
+And one for a Karman vortex (`python3 experiments.py karman`): <img src="img/karman_vortex.gif" width="720"/>
+
+# Notes
 
 ## Map editor
 Using the map editor we can create our own environment with the following map attributes:

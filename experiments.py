@@ -10,7 +10,7 @@ from LBM import LBM
 
 def lid_driven_cavity():
     model_params = {
-        "iterations": 100,
+        "iterations": 10000,
         "size": 100,
         "simulate_particles": False,
         "map": "liddrivencavity",
@@ -22,7 +22,7 @@ def lid_driven_cavity():
     }
 
     model = LBM(model_params)
-    model.render(kind="mag", save_file=True)
+    model.render(kind="mag", show_realtime=True)
 
 
 def validation():
