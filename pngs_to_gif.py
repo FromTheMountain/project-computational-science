@@ -4,10 +4,10 @@
 import imageio
 import os
 
-filenames = [f"simulation_frames/{f}" for f in os.listdir("simulation_frames")]
+files = [f"simulation_frames/{f}" for f in os.listdir("simulation_frames")]
 
 with imageio.get_writer('movie.gif', mode='I', fps=40) as writer:
-    for i, filename in enumerate(filenames):
+    for i in range(0, 10000, 16):
         print(f"Frame {i}", end="\r")
-        image = imageio.imread(filename)
+        image = imageio.imread(files[i])
         writer.append_data(image)
