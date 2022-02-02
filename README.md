@@ -79,9 +79,10 @@ Using the map editor we can create our own environment with the following map at
 
 ## Dependencies
 To install the required dependencies, simply run `pip install -r requirements.txt`
-
-
-
-<img src="simulation/infection_rate.png" width="720"/>
-
-
+```
+matplotlib==3.3.2
+numpy==1.19.2
+opencv_contrib_python==4.5.1.48
+pandas==1.1.3
+scipy==1.5.2
+```
