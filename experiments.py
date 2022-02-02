@@ -24,6 +24,7 @@ def lid_driven_cavity():
     model = LBM(model_params)
     model.render(kind="mag", save_file=True)
 
+
 def validation():
     """
     check line strip [50, 0-100] and [0-100, 50] in LDC test to compare
@@ -49,8 +50,8 @@ def validation():
 
     vx_error = np.zeros((nx))
     uy_error = np.zeros((ny))
-    half_nx       = math.floor(nx/2)
-    half_ny       = math.floor(ny/2)
+    half_nx = math.floor(nx / 2)
+    half_ny = math.floor(ny / 2)
 
     for i in range(nx):
         vx_error[i] = model.ux[half_ny, i]/model.u_lb
@@ -78,7 +79,8 @@ def validation():
 
     all_y = []
     for filename in all_files:
-        data = pd.read_csv('validation/' + str(filename) ,sep='\s+',header=None)
+        data = pd.read_csv('validation/' + str(filename), sep='\s+',
+                           header=None)
 
         x = data[0]
         y = data[1]
@@ -90,7 +92,8 @@ def validation():
     MSE_vx = round(np.square(all_y[0] - all_y[1]).mean(), 5)
     MSE_uy = round(np.square(all_y[2] - all_y[3]).mean(), 5)
 
-    all_files = [f'cavity_vx (MSE={MSE_vx})', 'cavity_vx_ref', f'cavity_uy (MSE={MSE_uy})', 'cavity_uy_ref']
+    all_files = [f'cavity_vx (MSE={MSE_vx})', 'cavity_vx_ref',
+                 f'cavity_uy (MSE={MSE_uy})', 'cavity_uy_ref']
 
     plt.legend(all_files)
     plt.savefig('validation/comparison.png')
