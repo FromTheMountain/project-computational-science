@@ -4,9 +4,7 @@ https://readme.so/editor
 
 # project-computational-science
 
-A brief description of what this project does and who it's for
-
-
+A simple lattice-Boltzmann implementation for 2D flow simulations
 
 <img src="_.html.gif" width="720"/>
 
