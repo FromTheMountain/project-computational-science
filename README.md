@@ -14,7 +14,7 @@ The code contributes 30% of the final mark.
 
 # project-computational-science
 
-A simple lattice-Boltzmann implementation for 2D flow simulations
+A simple lattice-Boltzmann implementation for 2D flow simulations with particle tracking
 
 <img src="_.html.gif" width="720"/>
 
