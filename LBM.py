@@ -256,7 +256,8 @@ class LBM:
         The default outlet handler for an LBM model.
         """
         # Set the density at outlets
-        outlet_rho = model.rho[model.outlet]
+        outlet_rho = 0.9
+        # outlet_rho = model.rho[model.outlet]
         outlet_ux = model.ux[model.outlet]
         outlet_uy = model.uy[model.outlet]
         model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
@@ -280,16 +281,17 @@ class LBM:
         # First layer: fluid plot
         self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
                                               dtype=float),
+                                     origin="lower",
                                      vmin=0.0, vmax=self.u_lb,
                                      cmap=plt.get_cmap("jet"))
         cbar = plt.colorbar(self.fluid_plot)
         cbar.set_label("Speed (units/steps)", rotation=270, labelpad=15)
 
         if np.any(self.susceptible):
-          # adding numbers at susceptible_centroids
-          for idx, val in enumerate(susceptible_centroids):
-              x, y = val
-              plt.text(x, y, str(idx), fontsize=10, color='white')
+            # adding numbers at susceptible_centroids
+            for idx, val in enumerate(susceptible_centroids):
+                x, y = val
+                plt.text(x, y, str(idx), fontsize=10, color='white')
 
         # Second layer: vector plot
         if vectors:
@@ -299,7 +301,7 @@ class LBM:
             v = self.uy[x, y]
 
             # Set scale to 0.5 for lid driven cavity, 4 for Karman vortex
-            self.vector_plot = plt.quiver(x, y, u, v, scale=4)
+            self.vector_plot = plt.quiver(x, y, u, v, scale=0.8)
 
         # Third layer: particle plots
         if self.simulate_particles:
@@ -353,7 +355,6 @@ class LBM:
             infection_rate = np.cumsum(self.infections, axis=1)
             removed_rate = np.cumsum(self.removed)
 
-            print(infection_rate)
             ax.plot(infection_rate.T)
             # ax.legend(susceptible_centroids)
             fig.savefig('infection_rate.png')
