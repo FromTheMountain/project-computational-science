@@ -135,11 +135,72 @@ def experiment1():
         plt.savefig('results/exp1-{}.png'.format(i))
 
 
+def experiment2():
+    model_params = {
+        "iterations": 1600,
+        "size": 100,
+        "simulate_particles": False,
+        "map": "concept4",
+        "L_p": 30,
+        "nu_p": 1.48e-5,
+        "u_p": 0.1,
+        "dt": 0.1
+    }
+
+    period_length = 400
+    open_window_frac = 1/2
+
+    def inlet_handler(model, it):
+        if it % period_length < open_window_frac * period_length:
+            # The windows are open, the inlet is acting like an actual inlet.
+            inlet_ux = 0.02
+            inlet_uy = 0.0
+            inlet_rho = np.ones_like(model.rho[model.inlet], dtype=float)
+
+            model.f[model.inlet] = model.get_equilibrium(len(inlet_rho),
+                                                         inlet_rho,
+                                                         inlet_ux, inlet_uy)
+        else:
+            # The windows are closed, the inlet is acting like a wall.
+            model.ux[model.inlet] = 0
+            model.uy[model.inlet] = 0
+
+            inlet_f = model.f[model.inlet, :]
+            inlet_f = inlet_f[:, [0, 3, 4, 1, 2, 7, 8, 5, 6]]
+            model.f[model.inlet, :] = inlet_f
+
+    def outlet_handler(model, it):
+        if it % period_length < open_window_frac * period_length:
+            # The windows are open, the outlet is acting like an actual outlet.
+            # Set the density at outlets
+            outlet_rho = 0.8
+            outlet_ux = model.ux[model.outlet]
+            outlet_uy = model.uy[model.outlet]
+            model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
+                                                        outlet_rho,
+                                                        outlet_ux, outlet_uy)
+        else:
+            model.ux[model.outlet] = 0
+            model.uy[model.outlet] = 0
+
+            outlet_f = model.f[model.outlet, :]
+            outlet_f = outlet_f[:, [0, 3, 4, 1, 2, 7, 8, 5, 6]]
+            model.f[model.outlet, :] = outlet_f
+
+    model = LBM(model_params,
+                inlet_handler=inlet_handler,
+                outlet_handler=outlet_handler
+                )
+
+    model.render(kind="mag", vectors=True, save_file=True)
+
 if __name__ == '__main__':
     experiment_options = {
         "cavity": lid_driven_cavity,
         "karman": karman_vortex,
-        "validation": validation
+        "validation": validation,
+        "1": experiment1,
+        "2": experiment2
     }
 
     if len(sys.argv) < 2:

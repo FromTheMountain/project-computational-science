@@ -221,7 +221,7 @@ class LBM:
         # necessarily refer to LBM.inlet_handler, it could also be a custom
         # callback function provided by the user when initialising the model.
         self.inlet_handler(self, it)
-        self.outlet_handler(self)
+        self.outlet_handler(self, it)
 
     def inlet_handler(model, it):
         """
@@ -236,7 +236,7 @@ class LBM:
                                                      inlet_rho,
                                                      inlet_ux, inlet_uy)
 
-    def outlet_handler(model):
+    def outlet_handler(model, it):
         """
         The default outlet handler for an LBM model.
         """
