@@ -43,7 +43,7 @@ Using `Experiment.py` in the repository we can simulate the following
 .....
 Re=100
 
-<img src="validation/comparison.png" width="420"/>
+<img src="validation/comparison_1500it.png" width="420"/>
 
 
 
@@ -67,9 +67,9 @@ Using the map editor we can create our own environment with the following map at
 
 ## Authors
 
-- [Jeroen van den Berg]()
-- [Erencan Tatar]()
-- [Robbie Koevoets](mailto:robbie.koevoets@student.uva.nl)
+- [Jeroen van den Berg]
+- [Erencan Tatar]
+- [Robbie Koevoets]
 
 
 ## Installation
