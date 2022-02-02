@@ -365,7 +365,6 @@ class LBM:
         # Perform an LBM iteration and update fluid plot
         self.lbm_iteration(it)
 
-        # vals = np.sqrt(self.ux**2 + self.uy**2) * (self.dx / self.dt) if kind == "mag" else self.rho
         vals = np.sqrt(self.ux**2 + self.uy**2) if kind == "mag" else self.rho
         self.fluid_plot.set_data(vals.T)
 
