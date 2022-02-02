@@ -1,6 +1,7 @@
 __pycache__
 
 debug.py
+unit_conversion.py
 
 *.gif
 *.html
