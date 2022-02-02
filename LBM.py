@@ -462,12 +462,12 @@ if __name__ == '__main__':
         "iterations": 1000,
         "size": 100,
         "simulate_particles": False,
-        "map": "liddrivencavity",
-        "reynolds": 1000.0,
+        "map": "concept4",
         "L_lb": 100,
-        "L_p": 1,
+        "L_p": 10,
         "nu_p": 1.48e-5,
-        "u_lb": 0.2
+        "u_p": 0.1,
+        "dt": 2e-4
     }
 
     model = LBM(model_params)
