@@ -33,7 +33,7 @@ A comparison of `uy = f(y)` and `vx = f(x)` at the center of the domain with ref
 
 <p align="center">
   
-<img src="validation/comparison_1500it.png" width="420"/>
+<img src="validation/comparison_10k_it.png" width="420"/>
   
 </p>
 
