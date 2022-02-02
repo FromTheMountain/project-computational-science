@@ -27,6 +27,8 @@ This LBM code includes:
 
 # Run simulation
 
+Note: Some simulations can take a while to run. Also be warned that when using many iterations it may use a decent amount of disk space. About 0.1MB per iteration.
+
 Using `Experiment.py` in the repository we can simulate the following experiments:
 - Lid driven cavity
 - Karman vortex
@@ -51,9 +53,6 @@ A comparison of `uy = f(y)` and `vx = f(x)` at the center of the domain with ref
 
 
 
-
-
-
 # Applications
 
 ## Map editor
@@ -74,9 +73,9 @@ Using the map editor we can create our own environment with the following map at
 
 ## Authors
 
-- [Jeroen van den Berg]
-- [Erencan Tatar]
-- [Robbie Koevoets]
+- Jeroen van den Berg
+- Erencan Tatar
+- Robbie Koevoets
 
 
 ## Dependencies
