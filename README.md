@@ -33,7 +33,7 @@ Using `Experiment.py` in the repository we can simulate the following
 ..... 
 Re=100
 
-<img src="validtion/comparison.png" width="420"/>
+<img src="validation/comparison.png" width="420"/>
 
 
 
