@@ -65,9 +65,9 @@ Using the map editor we can create our own environment with the following map at
 - OUTLET
 -- Causes fluid to 'exit' the domain.
 - INFECTED
--- Spawns particles.
+-- Infected person where particles spawn.
 - SUSCEPTIBLE
--- Eats particles.
+-- Susceptible person can get infected with particles. (don't become INFECTED in simulation)
 
 
 ## Authors
