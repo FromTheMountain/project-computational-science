@@ -10,7 +10,7 @@ from LBM import LBM
 
 def lid_driven_cavity():
     model_params = {
-        "iterations": 50,
+        "iterations": 100,
         "size": 100,
         "simulate_particles": False,
         "map": "liddrivencavity",
@@ -22,7 +22,7 @@ def lid_driven_cavity():
     }
 
     model = LBM(model_params)
-    model.render(kind="mag", save_file="animation")
+    model.render(kind="mag", save_file=True)
 
 def validation():
     """
@@ -96,8 +96,22 @@ def validation():
     plt.savefig('validation/comparison.png')
     plt.show()
 
+
 def karman_vortex():
-    pass
+    model_params = {
+        "iterations": 10000,
+        "size": 100,
+        "simulate_particles": False,
+        "map": "karmanvortex",
+        "reynolds": 1000.0,
+        "L_lb": 100,
+        "L_p": 1,
+        "nu_p": 1.48e-5,
+        "u_lb": 0.1
+    }
+
+    model = LBM(model_params)
+    model.render(kind="mag", show_realtime=True)
 
 
 def experiment1():
@@ -139,7 +153,7 @@ def experiment2():
     model_params = {
         "iterations": 1600,
         "size": 100,
-        "simulate_particles": False,
+        "simulate_particles": True,
         "map": "concept4",
         "L_p": 30,
         "nu_p": 1.48e-5,
@@ -147,7 +161,7 @@ def experiment2():
         "dt": 0.1
     }
 
-    period_length = 400
+    period_length = 800
     open_window_frac = 1/2
 
     def inlet_handler(model, it):
@@ -173,7 +187,7 @@ def experiment2():
         if it % period_length < open_window_frac * period_length:
             # The windows are open, the outlet is acting like an actual outlet.
             # Set the density at outlets
-            outlet_rho = 0.8
+            outlet_rho = 1
             outlet_ux = model.ux[model.outlet]
             outlet_uy = model.uy[model.outlet]
             model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
@@ -189,7 +203,7 @@ def experiment2():
 
     model = LBM(model_params,
                 inlet_handler=inlet_handler,
-                outlet_handler=outlet_handler
+                # outlet_handler=outlet_handler
                 )
 
     model.render(kind="mag", vectors=True, save_file=True)

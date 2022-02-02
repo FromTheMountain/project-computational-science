@@ -268,7 +268,8 @@ class LBM:
         Vectors: Whether to draw vector arrows on the visualisation.
         kind: What to visualise, options are: mag, density
         """
-    def render(self, kind="density", vectors=False, save_file=None):
+    def render(self, kind="density", vectors=False, show_realtime=False,
+               save_file=False):
         """
         Render the values collected by the model with matplotlib. Argument
         "kind" should be of value "density" or "mag"
@@ -314,7 +315,7 @@ class LBM:
         cmap = colors.ListedColormap(clr)
 
         self.map_plot = plt.imshow(map_data.T, alpha=0.6, origin="lower",
-                                   cmap=cmap)
+                                   vmin=0, vmax=len(clr), cmap=cmap)
 
         patches = [mpatches.Patch(color=c, label=name) for c, name in
                    zip(clr[1:],
@@ -337,7 +338,9 @@ class LBM:
                              init_func=lambda: self.animate(0, ax, kind,
                                                             vectors))
 
-        if save_file:
+        if show_realtime:
+            plt.show()
+        elif save_file:
             anim.save("simulation.html", writer="html")
         else:
             for i in range(self.iters):
