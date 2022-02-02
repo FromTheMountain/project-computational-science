@@ -27,11 +27,13 @@ This LBM code includes:
 
 # Run simulation
 
-Using `Experiment.py` in the repository we can simulate the following
+Using `Experiment.py` in the repository we can simulate the following experiments:
 - Lid driven cavity
 - Karman vortex
 - Own experiment, with our own map created in `maps/concept.txt` using `mapeditor.py`. Setting up behaviour for the inlets and outlets in the function "own_experiment" in `Experiment.py` will result in different simulations.
 - ...
+
+Specify in `Experiment.py` the intial conditions. 
 
 
 
