@@ -1,12 +1,8 @@
-# project-computational-science
-
-TODO:
-
 https://readme.so/editor
 
 
 
-# Project Title
+# project-computational-science
 
 A brief description of what this project does and who it's for
 
@@ -27,6 +23,9 @@ This LBM code includes:
 # Run simulation
 
 - "Experiment.py"
+-- Lid driven cavity
+-- Karman vortex
+-- Own experiment using 
 
 
 
