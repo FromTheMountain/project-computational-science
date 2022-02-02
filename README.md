@@ -1,17 +1,3 @@
-https://readme.so/editor
-TODO:
-
-
-Some pointers how you can improve your code:
-
-- readable and consistent (think PEP8)
-- well commented (e.g. functions, important variables, complex code blocks are described)
-- contains a 'readme' for basic usage, what the code does briefly, and directions to reproduce test figure
-- if there are non-trivial dependencies there is a 'readme.txt/.md' that states the required libraries and their versions
-- it is nice to have some test included, be it simple assertions (as mentioned on the main page of the course) or better yet unit tests
-The code contributes 30% of the final mark.
----------------------------------------------------------------------------------------------------------------------------------------
-
 # project-computational-science
 
 A simple lattice-Boltzmann implementation for 2D flow simulations with particle tracking
