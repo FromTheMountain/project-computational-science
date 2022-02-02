@@ -59,11 +59,12 @@ class LBM:
         self.outlet_handler = outlet_handler if outlet_handler is not None \
             else LBM.outlet_handler
         
-        print("Settings for ", init, " test")
-        if init == "default":
+        self.init = init
+        print("Settings for ", self.init, " test")
+        if self.init == "default":
             self.init_default()
-        elif init == "cavity":
-            self.init_liddrivencavity(1000.0)
+        elif self.init == "cavity":
+            self.init_liddrivencavity(100)
 
         print("=" * 10 + " Model values " + "=" * 10)
         print(f"dx {self.dx:.4f} m/unit")
@@ -277,10 +278,11 @@ class LBM:
         cbar = plt.colorbar(self.fluid_plot)
         cbar.set_label("Air speed (m/s)", rotation=270, labelpad=15)
 
-        for idx, val in enumerate(susceptible_centroids):
-            x, y = val
-
-            plt.text(x, y, str(idx), fontsize=10, color='white')
+        # adding numbers at susceptible_centroids
+        if self.init == "default":
+            for idx, val in enumerate(susceptible_centroids):
+                x, y = val
+                plt.text(x, y, str(idx), fontsize=10, color='white')
 
         # Second layer: vector plot
         if vectors:
