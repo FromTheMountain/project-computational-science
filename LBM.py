@@ -23,8 +23,7 @@ NUM_SUSCEP_CENTROIDS = len(susceptible_centroids)
 
 
 class LBM:
-    def __init__(self, params, inlet_handler=None,
-                 outlet_handler=None):
+    def __init__(self, params, inlet_handler=None, outlet_handler=None):
         # Get the map details
         self.width = self.height = params['size']
         self.map_scaling_factor = 1.0
@@ -52,9 +51,9 @@ class LBM:
             else LBM.outlet_handler
 
         if 'reynolds' in params:
-            self.init_reynolds(params['reynolds'])
+            self.init_reynolds(params)
         else:
-            self.init_default()
+            self.init_default(params)
 
         print("=" * 10 + " Model values " + "=" * 10)
         print(f"{'Physical length':<15} {self.width * self.dx:>10.4f} meters")
@@ -62,7 +61,7 @@ class LBM:
         print()
         print(f"{'dx':<10} {self.dx:>10.4f} m/unit")
         print(f"{'dt':<10} {self.dt:>10.4f} s/step")
-        print(f"{'tau':<10} {self.tau:>10.4f} m^2/s")
+        print(f"{'tau':<10} {self.tau:>10.4f}")
         print(f"{'Re':<10} {self.Re:>10.4f}")
         print(f"{'nu_lb':<10} {self.nu_lb:>10.4f} units^2/step")
         print(f"{'u_lb':<10} {self.u_lb:>10.4f} units/step")
@@ -78,12 +77,12 @@ class LBM:
                                       self.uy.flatten()).reshape(
             (self.width, self.height, Q))
 
-    def init_default(self):
+    def init_default(self, params):
         # Known parameters (SI units)
-        self.L_p = 1
-        self.nu_p = 1.48e-5
-        self.u_p = 0.1
-        self.dt = 1e-2
+        self.L_p = params['L_p']
+        self.nu_p = params['nu_p']
+        self.u_p = params['u_p']
+        self.dt = params['dt']
 
         # Compute other variables
         self.dx = self.L_p / self.width
@@ -95,13 +94,13 @@ class LBM:
         self.cssq = 1/3
         self.tau = self.nu_lb / self.cssq + 0.5
 
-    def init_reynolds(self, Re):
+    def init_reynolds(self, params):
         # Known parameters (SI units)
-        self.Re = Re
-        self.L_lb = self.width
-        self.L_p = 30
-        self.nu_p = 1.48e-5
-        self.u_lb = 0.1
+        self.Re = params['reynolds']
+        self.L_lb = params['L_lb']
+        self.L_p = params['L_p']
+        self.nu_p = params['nu_p']
+        self.u_lb = params['u_lb']
 
         # Compute other variables
         self.u_p = (self.Re * self.nu_p) / self.L_p
@@ -340,7 +339,7 @@ class LBM:
     def animate(self, it, ax, kind, vectors):
         print("Running animate on iteration {} of {} of kind {}".format(it + 1,
               self.iters, kind),
-              end="\n")
+              end="\r")
         # Perform an LBM iteration and update fluid plot
         self.lbm_iteration(it)
 
@@ -364,67 +363,6 @@ class LBM:
 
         # Update the plot title
         ax.set_title("{}, i={}, t={:.4f}s".format(kind, it, it * self.dt))
-
-    def validation(self):
-
-        """
-        check line strip [50, 0-100] and [0-100, 50] in LDC test to compare
-
-        """
-        nx = self.width
-        ny = self.height
-
-        vx_error = np.zeros((nx))
-        uy_error = np.zeros((ny))
-        half_nx       = math.floor(nx/2)
-        half_ny       = math.floor(ny/2)
-
-        for i in range(nx):
-
-            vx_error[i] = self.ux[half_ny, i]/self.u_lb
-
-        for j in range(ny):
-            uy_error[j] = self.uy[j, half_nx]/self.u_lb
-
-        output_dir = 'validation/'
-
-        # Write to files
-        filename = output_dir+'cavity_vx'
-        with open(filename, 'w') as f:
-            for i in range(nx):
-                f.write('{} {}\n'.format(i*self.dx, uy_error[i]))
-
-
-        filename = output_dir+'cavity_uy'
-        with open(filename, 'w') as f:
-            for j in range(ny):
-                f.write('{} {}\n'.format(j*self.dx, vx_error[j]))
-
-        # plot against reference
-        all_files = ['cavity_vx', 'cavity_vx_ref', 'cavity_uy', 'cavity_uy_ref']
-
-        plt.figure()
-
-        all_y = []
-        for filename in all_files:
-
-            data = pd.read_csv('validation/' + str(filename) ,sep='\s+',header=None)
-
-            x = data[0]
-            y = data[1]
-            all_y.append(y)
-            plt.plot(x, y, label=filename)
-
-        plt.title(f"U/V Profile vs Ghia et al. (ref), Re = {self.Re}")
-
-        MSE_vx = round(np.square(all_y[0] - all_y[1]).mean(), 5)
-        MSE_uy = round(np.square(all_y[2] - all_y[3]).mean(), 5)
-
-        all_files = [f'cavity_vx (MSE={MSE_vx})', 'cavity_vx_ref', f'cavity_uy (MSE={MSE_uy})', 'cavity_uy_ref']
-
-        plt.legend(all_files)
-        plt.savefig('validation/comparison.png')
-        plt.show()
 
     def update_particles(self, it):
         """
@@ -509,5 +447,3 @@ if __name__ == '__main__':
     model = LBM(model_params)
 
     model.render(kind="mag", vectors=True, save_file='animation')
-
-    model.validation()
