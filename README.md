@@ -1,17 +1,3 @@
-https://readme.so/editor
-TODO:
-
-
-Some pointers how you can improve your code:
-
-- readable and consistent (think PEP8)
-- well commented (e.g. functions, important variables, complex code blocks are described)
-- contains a 'readme' for basic usage, what the code does briefly, and directions to reproduce test figure
-- if there are non-trivial dependencies there is a 'readme.txt/.md' that states the required libraries and their versions
-- it is nice to have some test included, be it simple assertions (as mentioned on the main page of the course) or better yet unit tests
-The code contributes 30% of the final mark.
----------------------------------------------------------------------------------------------------------------------------------------
-
 # project-computational-science
 
 A simple lattice-Boltzmann implementation for 2D flow simulations with particle tracking
@@ -29,13 +15,13 @@ This LBM code includes:
 
 Note: Some simulations can take a while to run. Also be warned that when using many iterations it may use a decent amount of disk space. About 0.1MB per iteration.
 
-Using `Experiment.py` in the repository we can simulate the following experiments:
+Using `experiment.py` in the repository we can simulate the following experiments:
 - Lid driven cavity
 - Karman vortex
-- Own experiment, with our own map created in `maps/concept.txt` using `mapeditor.py`. Setting up behaviour for the inlets and outlets in the function "own_experiment" in `Experiment.py` will result in different simulations.
+- Own experiment, with our own map created in `maps/concept.txt` using `mapeditor.py`. Setting up behaviour for the inlets and outlets in the function "own_experiment" in `experiment.py` will result in different simulations.
 - ...
 
-Specify in `Experiment.py` the initial conditions. 
+Specify in `experiment.py` the initial conditions. After the simualtion is complete a folder `/frames` folder along with a .html can be used to view the 2d animation.
 
 
 
@@ -47,7 +33,7 @@ A comparison of `uy = f(y)` and `vx = f(x)` at the center of the domain with ref
 
 <p align="center">
   
-<img src="validation/comparison_1500it.png" width="420"/>
+<img src="validation/comparison_10k_it.png" width="420"/>
   
 </p>
 
