@@ -15,13 +15,13 @@ This LBM code includes:
 
 Note: Some simulations can take a while to run. Also be warned that when using many iterations it may use a decent amount of disk space. About 0.1MB per iteration.
 
-Using `Experiment.py` in the repository we can simulate the following experiments:
+Using `experiment.py` in the repository we can simulate the following experiments:
 - Lid driven cavity
 - Karman vortex
-- Own experiment, with our own map created in `maps/concept.txt` using `mapeditor.py`. Setting up behaviour for the inlets and outlets in the function "own_experiment" in `Experiment.py` will result in different simulations.
+- Own experiment, with our own map created in `maps/concept.txt` using `mapeditor.py`. Setting up behaviour for the inlets and outlets in the function "own_experiment" in `experiment.py` will result in different simulations.
 - ...
 
-Specify in `Experiment.py` the initial conditions. 
+Specify in `experiment.py` the initial conditions. After the simualtion is complete a folder `/frames` folder along with a .html can be used to view the 2d animation.
 
 
 
