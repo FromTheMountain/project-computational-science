@@ -284,10 +284,11 @@ class LBM:
         cbar = plt.colorbar(self.fluid_plot)
         cbar.set_label("Speed (units/steps)", rotation=270, labelpad=15)
 
-        # adding numbers at susceptible_centroids
-        for idx, val in enumerate(susceptible_centroids):
-            x, y = val
-            plt.text(x, y, str(idx), fontsize=10, color='white')
+        if np.any(self.susceptible):
+          # adding numbers at susceptible_centroids
+          for idx, val in enumerate(susceptible_centroids):
+              x, y = val
+              plt.text(x, y, str(idx), fontsize=10, color='white')
 
         # Second layer: vector plot
         if vectors:
