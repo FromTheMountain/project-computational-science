@@ -7,7 +7,7 @@ import matplotlib.patches as mpatches
 import cv2
 
 # Model
-ITERATIONS = 10000
+ITERATIONS = 500
 
 # LBM parameters
 c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
@@ -24,7 +24,7 @@ NUM_SUSCEP_CENTROIDS = len(susceptible_centroids)
 
 
 class LBM:
-    def __init__(self, size=100, map_name='concept1', particles=True,
+    def __init__(self, size=100, Re=100.0, map_name='concept1', particles=True,
                  inlet_handler=None, outlet_handler=None, init="default"):
         # Get the map details
         self.width = self.height = size
@@ -60,14 +60,19 @@ class LBM:
         if init == "default":
             self.init_default()
         elif init == "cavity":
-            self.init_liddrivencavity(1000.0)
+            self.init_liddrivencavity(Re)
+        elif init == "reynolds":
+            self.init_reynolds(Re)
 
         print("=" * 10 + " Model values " + "=" * 10)
+        print(f"Physical width {self.width * self.dx:.4f}m")
+        print(f"Total time {ITERATIONS * self.dt:.4f}s")
+        print()
         print(f"dx {self.dx:.4f} m/unit")
         print(f"dt {self.dt:.4f} s/step")
         print(f"Tau {self.tau:.4f} m^2/s")
         print(f"Re {self.Re:.4f}")
-        print(f"nu_lb {self.nu_lb:.4f} m^2/s")
+        print(f"nu_lb {self.nu_lb:.4f}")
         print(f"u_lb {self.u_lb:.4f} units/step")
         print()
 
@@ -83,10 +88,10 @@ class LBM:
 
     def init_default(self):
         # Known parameters (SI units)
-        self.L_p = 20                  # m
+        self.L_p = 1                   # m
         self.nu_p = 1.48e-5            # m^2/s
-        self.u_p = 1.48e-4 * self.L_p  # m/s
-        self.dt = 0.1                  # s
+        self.u_p = 0.1                 # m/s
+        self.dt = 1e-2                  # s
 
         # Compute other variables
         self.dx = self.L_p / self.width
@@ -98,7 +103,7 @@ class LBM:
         self.cssq = 1/3
         self.tau = self.nu_lb / self.cssq + 0.5
 
-    def init_liddrivencavity(self, Re=100.0):
+    def init_liddrivencavity(self, Re):
         # Known parameters (SI units)
         self.Re = Re
         self.L_lb = self.width  # units
@@ -107,6 +112,23 @@ class LBM:
         self.u_lb = 0.2         # units/step
 
         # Compute other variables
+        self.dx = self.L_p / self.L_lb
+        self.nu_lb = (self.u_lb * self.L_lb) / self.Re
+        self.dt = self.Re * self.nu_lb / self.L_lb**2
+
+        self.cssq = 1/3
+        self.tau = self.nu_lb / self.cssq + 0.5
+
+    def init_reynolds(self, Re):
+        # Known parameters (SI units)
+        self.Re = Re
+        self.L_lb = self.width  # units
+        self.L_p = 30           # m
+        self.nu_p = 1.48e-5
+        self.u_lb = 0.1
+
+        # Compute other variables
+        self.u_p = (self.Re * self.nu_p) / self.L_p
         self.dx = self.L_p / self.L_lb
         self.nu_lb = (self.u_lb * self.L_lb) / self.Re
         self.dt = self.Re * self.nu_lb / self.L_lb**2
@@ -410,7 +432,6 @@ class LBM:
                 continue
 
             if self.susceptible[int(round(x)), int(round(y))]:
-
                 try:
                     # FIND CLOSEST NODE
                     node = int(x), int(y)
@@ -433,9 +454,8 @@ class LBM:
             else:
                 dx, dy = ux_func([x, y])[0], uy_func([x, y])[0]
 
-                speed_factor = self.map_scaling_factor
-
-                dx, dy = speed_factor*dx, speed_factor*dy
+                dx, dy = self.map_scaling_factor * dx, \
+                         self.map_scaling_factor * dy
                 # Keep particles inside boundaries
                 new_x = min(max(0, x + dx), self.width - 1)
                 new_y = min(max(0, y + dy), self.height - 1)
@@ -444,6 +464,6 @@ class LBM:
 
 
 if __name__ == '__main__':
-    model = LBM(map_name='concept5')
+    model = LBM(map_name='concept5', init="reynolds", Re=6000.0)
 
     model.render(kind="mag", vectors=True, save_file='animation')
