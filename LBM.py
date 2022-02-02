@@ -5,8 +5,6 @@ from scipy.interpolate import RegularGridInterpolator
 from matplotlib import colors
 import matplotlib.patches as mpatches
 import cv2
-import pandas as pd
-import math
 
 # LBM constants
 c = np.array([(0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1),
@@ -50,6 +48,8 @@ class LBM:
         self.outlet_handler = outlet_handler if outlet_handler is not None \
             else LBM.outlet_handler
 
+        # If we do know the Reynolds number, then use different calculations
+        # to determine the other values.
         if 'reynolds' in params:
             self.init_reynolds(params)
         else:
@@ -77,6 +77,8 @@ class LBM:
                                       self.uy.flatten()).reshape(
             (self.width, self.height, Q))
 
+        """Initialise the model based on a couple of physical values.
+        """
     def init_default(self, params):
         # Known parameters (SI units)
         self.L_p = params['L_p']
@@ -94,6 +96,9 @@ class LBM:
         self.cssq = 1/3
         self.tau = self.nu_lb / self.cssq + 0.5
 
+        """Initialise the model based on the known Reynolds number and other
+        values.
+        """
     def init_reynolds(self, params):
         # Known parameters (SI units)
         self.Re = params['reynolds']
@@ -111,6 +116,8 @@ class LBM:
         self.cssq = 1/3
         self.tau = self.nu_lb / self.cssq + 0.5
 
+        """Read a map made by the map editor from a file.
+        """
     def read_map_from_file(self, filename):
         with open(filename, 'r') as f:
             iterator = enumerate(f)
@@ -155,10 +162,9 @@ class LBM:
 
         return wall, inlet, outlet, infected, susceptible
 
+        """Update the macroscopic quantities of the model and return them.
+        """
     def moment_update(f):
-        """
-        Update the rho and velocity values of each grid position.
-        """
         rho = np.sum(f, 2)
 
         ux = np.sum(c[:, 0] * f, axis=2) / rho
@@ -166,6 +172,8 @@ class LBM:
 
         return rho, ux, uy
 
+        """Calculate the equilibrium values of the model and return them.
+        """
     def get_equilibrium(self, n, rho, ux, uy):
         """
         Calculate the equalibrium distribution for the BGK operator.
@@ -185,10 +193,12 @@ class LBM:
 
         return f_eq
 
+        """Perform an iteration of the Lattice-Boltzmann method. Also checks
+        whether the model is stable.
+
+        Performs inlet and outlet handling according to the specified handlers.
+        """
     def lbm_iteration(self, it):
-        """
-        Perform an iteration of the Lattice-Boltzmann method.
-        """
         # moment update
         self.rho, self.ux, self.uy = LBM.moment_update(self.f)
 
@@ -223,6 +233,8 @@ class LBM:
         self.inlet_handler(self, it)
         self.outlet_handler(self, it)
 
+        """Calculate the values of the inlets based on the specified velocity.
+        """
     def inlet_handler(model, it):
         """
         The default inlet handler for an LBM model.
@@ -236,6 +248,9 @@ class LBM:
                                                      inlet_rho,
                                                      inlet_ux, inlet_uy)
 
+    """Keep the values of the outlets constant, so no bounce back occurs
+       and the fluid exits the computational domain.
+    """
     def outlet_handler(model, it):
         """
         The default outlet handler for an LBM model.
@@ -248,6 +263,11 @@ class LBM:
                                                       outlet_rho,
                                                       outlet_ux, outlet_uy)
 
+        """Render the model.
+
+        Vectors: Whether to draw vector arrows on the visualisation.
+        kind: What to visualise, options are: mag, density
+        """
     def render(self, kind="density", vectors=False, save_file=None):
         """
         Render the values collected by the model with matplotlib. Argument
@@ -259,10 +279,10 @@ class LBM:
         # First layer: fluid plot
         self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
                                               dtype=float),
-                                     vmin=0.0, vmax=0.2,
+                                     vmin=0.0, vmax=self.u_lb,
                                      cmap=plt.get_cmap("jet"))
         cbar = plt.colorbar(self.fluid_plot)
-        cbar.set_label("Speed", rotation=270, labelpad=15)
+        cbar.set_label("Speed (units/steps)", rotation=270, labelpad=15)
 
         # adding numbers at susceptible_centroids
         for idx, val in enumerate(susceptible_centroids):
@@ -336,6 +356,8 @@ class LBM:
             ax.plot(removed_rate)
             fig.savefig('removed_rate.png')
 
+        """The animate function that is called for every step of the model.
+        """
     def animate(self, it, ax, kind, vectors):
         print("Running animate on iteration {} of {} of kind {}".format(it + 1,
               self.iters, kind),
@@ -343,6 +365,7 @@ class LBM:
         # Perform an LBM iteration and update fluid plot
         self.lbm_iteration(it)
 
+        # vals = np.sqrt(self.ux**2 + self.uy**2) * (self.dx / self.dt) if kind == "mag" else self.rho
         vals = np.sqrt(self.ux**2 + self.uy**2) if kind == "mag" else self.rho
         self.fluid_plot.set_data(vals.T)
 
@@ -364,6 +387,9 @@ class LBM:
         # Update the plot title
         ax.set_title("{}, i={}, t={:.4f}s".format(kind, it, it * self.dt))
 
+        """Update the particles that move according to the velocities of the
+        fluid.
+        """
     def update_particles(self, it):
         """
         Tracks the motions of particles through the airflow.
@@ -436,12 +462,12 @@ if __name__ == '__main__':
         "iterations": 1000,
         "size": 100,
         "simulate_particles": False,
-        "map": "liddrivencavity",
-        "reynolds": 1000.0,
+        "map": "concept4",
         "L_lb": 100,
-        "L_p": 1,
+        "L_p": 10,
         "nu_p": 1.48e-5,
-        "u_lb": 0.1
+        "u_p": 0.1,
+        "dt": 2e-4
     }
 
     model = LBM(model_params)
