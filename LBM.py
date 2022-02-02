@@ -231,7 +231,7 @@ class LBM:
         # necessarily refer to LBM.inlet_handler, it could also be a custom
         # callback function provided by the user when initialising the model.
         self.inlet_handler(self, it)
-        self.outlet_handler(self)
+        self.outlet_handler(self, it)
 
         """Calculate the values of the inlets based on the specified velocity.
         """
@@ -248,10 +248,10 @@ class LBM:
                                                      inlet_rho,
                                                      inlet_ux, inlet_uy)
 
-        """Keep the values of the outlets constant, so no bounce back occurs
-        and the fluid exits the computational domain.
-        """
-    def outlet_handler(model):
+    """Keep the values of the outlets constant, so no bounce back occurs
+       and the fluid exits the computational domain.
+    """
+    def outlet_handler(model, it):
         """
         The default outlet handler for an LBM model.
         """
