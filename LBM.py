@@ -37,7 +37,7 @@ class LBM:
         # every 20 it spawn particles
         if self.simulate_particles:
             self.spawn_rate = 20            # every x iterations
-            self.spawn_amount_at_rate = 1   # x particles
+            self.spawn_amount_at_rate = 5   # x particles
 
             self.num_particles = (self.iters // self.spawn_rate) * \
                 self.spawn_amount_at_rate
@@ -349,9 +349,12 @@ class LBM:
             infection_rate = np.cumsum(self.infections, axis=1)
             removed_rate = np.cumsum(self.removed)
 
-            print(infection_rate)
             ax.plot(infection_rate.T)
-            # ax.legend(susceptible_centroids)
+            # TODO: Add spawn rate to title and parameters
+            ax.set_title(f"Infection rate in a building")
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("Infected count")
+            ax.legend(range(len(susceptible_centroids)))
             fig.savefig('infection_rate.png')
             ax.plot(removed_rate)
             fig.savefig('removed_rate.png')
@@ -436,7 +439,7 @@ class LBM:
                 dist_2 = np.sum((nodes - node)**2, axis=1)
                 closest = np.argmin(dist_2)
 
-                self.infections[closest][i] += 1
+                self.infections[closest][it] += 1
 
                 self.particles_exited.add(i)
                 self.particle_locations[i] = [0, 0]
@@ -458,15 +461,15 @@ class LBM:
 
 if __name__ == '__main__':
     model_params = {
-        "iterations": 1000,
+        "iterations": 10000,
         "size": 100,
-        "simulate_particles": False,
+        "simulate_particles": True,
         "map": "concept4",
-        "L_lb": 100,
-        "L_p": 10,
+        "reynolds": 100,
+        "L_lb": 200,
+        "L_p": 1,
         "nu_p": 1.48e-5,
-        "u_p": 0.1,
-        "dt": 2e-4
+        "u_lb": 0.4
     }
 
     model = LBM(model_params)
