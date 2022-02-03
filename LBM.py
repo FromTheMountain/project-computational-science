@@ -15,8 +15,10 @@ Q = 9
 AIR, WALL, INLET, OUTLET, INFECTED, SUSCEPTIBLE = [0, 1, 2, 3, 4, 5]
 
 # for know hardcoden
-susceptible_centroids = np.array([(18, 93), (79, 80), (79, 51), (80, 26),
-                                  (49, 5)])
+
+# susceptible_centroids = np.array([(48,4),(48,89),(79,50),(78,80),(78,24)]) # concept4 
+susceptible_centroids = np.array([(47,4),(78,47),(78,80),(84,26)]) # concept6 
+
 NUM_SUSCEP_CENTROIDS = len(susceptible_centroids)
 
 
@@ -31,6 +33,7 @@ class LBM:
         self.wall_copy = np.copy(self.wall)
 
         self.iters = params['iterations']
+        self.window_ratio = params['window_open_ratio']
 
         assert self.wall.shape == self.inlet.shape == self.outlet.shape
 
@@ -39,8 +42,8 @@ class LBM:
 
         # every 20 it spawn particles
         if self.simulate_particles:
-            self.spawn_rate = 10            # every x iterations
-            self.spawn_amount_at_rate = 10    # x particles
+            self.spawn_rate = 25            # every x iterations
+            self.spawn_amount_at_rate = 5    # x particles
 
             self.num_particles = (self.iters // self.spawn_rate) * \
                 self.spawn_amount_at_rate
@@ -282,7 +285,8 @@ class LBM:
         self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
                                               dtype=float),
                                      vmin=0.0, vmax=self.u_lb,
-                                     cmap=plt.get_cmap("RdBu_r"))
+                                     cmap=plt.get_cmap("RdBu_r")) 
+                                     # RdBu_r /
         cbar = plt.colorbar(self.fluid_plot)
         cbar.set_label("Speed (units/steps)", rotation=270, labelpad=15)
 
@@ -319,7 +323,7 @@ class LBM:
                         SUSCEPTIBLE * self.susceptible)
 
 
-        clr = ["white", "blue", "red", "purple", "yellow", "darkgreen"]
+        clr = ["floralwhite", "blue", "red", "purple", "yellow", "darkgreen"]
         cmap = colors.ListedColormap(clr)
 
         self.map_plot = plt.imshow(map_data.T, alpha=0.6, origin="lower",
@@ -348,7 +352,28 @@ class LBM:
                                                             vectors))
 
         if save_file:
-            anim.save("simulation.html", writer="html")
+            name = "{}/simulation.html".format(self.window_ratio)
+            print(name)
+            anim.save("results/{}/simulation.html".format(self.window_ratio), writer="html")
+
+            # save as GIF
+            try:
+                import imageio
+                import os
+
+                files = [f"simulation_frames/{f}" for f in os.listdir("simulation_frames")]
+
+
+                # duration=
+                with imageio.get_writer('results/movie_{}.gif'.format(self.window_ratio), mode='I',fps=40) as writer:
+                    for i in range(0, 10000, 16):
+                        print(f"Frame {i}", end="\r")
+                        image = imageio.imread(files[i])
+                        writer.append_data(image)
+                print("succes gif")
+            except:
+                pass
+
         else:
             for i in range(self.iters):
                 self.animate(i, ax, kind, vectors)
@@ -360,10 +385,30 @@ class LBM:
             removed_rate = np.cumsum(self.removed)
 
             ax.plot(infection_rate.T)
-            # ax.legend(susceptible_centroids)
-            fig.savefig('infection_rate.png')
+            ax.legend(range(len(susceptible_centroids)))
+            ax.set_title(f"Infection rate after {self.iters} iterations")
+            ax.set_xlabel("Iterations")
+            ax.set_ylabel("Infections")
+            fig.savefig('results/{}/infection_rate_w_ratio_{}.png'.format(self.window_ratio, self.window_ratio))
+            
+            fig, ax = plt.subplots()
+
             ax.plot(removed_rate)
-            fig.savefig('removed_rate.png')
+            ax.set_title(f"Particles removed after {self.iters} iterations")
+            ax.set_xlabel("Iterations")
+            ax.set_ylabel("Particle removed by outlet")
+            ax.legend('',frameon=False)
+            ax.set_ylabel
+            fig.savefig('results/{}/removed_rate_w_ratio_{}.png'.format(self.window_ratio, self.window_ratio))
+
+            output_dir = 'results/' + str(self.window_ratio) + "/"
+            # Write to files
+            filename = output_dir+'removed_cumsum.npy'
+            np.save(filename, removed_rate)
+
+            filename = output_dir+'infection_rate.npy'
+            np.save(filename, infection_rate)
+
 
         """The animate function that is called for every step of the model.
         """
@@ -400,7 +445,7 @@ class LBM:
                 self.particle_plots[i].set_data(*loc)
 
         # Update the plot title
-        ax.set_title("{}, i={}, t={:.4f}s".format(kind, it, it * self.dt))
+        ax.set_title("{}, W_ratio={}, i={}, t={:.4f}s".format(kind, self.window_ratio, it, it * self.dt))
 
         """Update the particles that move according to the velocities of the
         fluid.
@@ -457,14 +502,14 @@ class LBM:
                 self.particles_exited.add(i)
                 self.particle_locations[i] = [0, 0]
             elif self.outlet[int(round(x)), int(round(y))]:
-                self.removed[i] += 1
+                self.removed[it] += 1
                 self.particles_exited.add(i)
                 self.particle_locations[i] = [0, 0]
             else:
                 dx, dy = ux_func([x, y])[0], uy_func([x, y])[0]
 
-                dx, dy = self.map_scaling_factor * dx, \
-                    self.map_scaling_factor * dy
+                dx, dy = 2 * dx, \
+                    2 * dy
                 # Keep particles inside boundaries
                 new_x = min(max(0, x + dx), self.width - 1)
                 new_y = min(max(0, y + dy), self.height - 1)
