@@ -452,7 +452,7 @@ class LBM:
                 dist_2 = np.sum((nodes - node)**2, axis=1)
                 closest = np.argmin(dist_2)
 
-                self.infections[closest][i] += 1
+                self.infections[closest][it] += 1
 
                 self.particles_exited.add(i)
                 self.particle_locations[i] = [0, 0]
