@@ -10,7 +10,7 @@ from LBM import LBM
 
 def lid_driven_cavity():
     model_params = {
-        "iterations": 10000,
+        "iterations": 50,
         "size": 100,
         "simulate_particles": False,
         "map": "liddrivencavity",
@@ -22,7 +22,7 @@ def lid_driven_cavity():
     }
 
     model = LBM(model_params)
-    model.render(kind="mag", show_realtime=True)
+    model.render(kind="mag", save_file="animation")
 
 
 def validation():
@@ -31,7 +31,7 @@ def validation():
 
     """
     model_params = {
-        "iterations": 10000,
+        "iterations": 1000,
         "size": 100,
         "simulate_particles": False,
         "map": "liddrivencavity",
@@ -79,7 +79,7 @@ def validation():
 
     all_y = []
     for filename in all_files:
-        data = pd.read_csv('validation/' + str(filename), sep=' ',
+        data = pd.read_csv('validation/' + str(filename), sep='\s+',
                            header=None)
 
         x = data[0]
@@ -96,25 +96,14 @@ def validation():
                  f'cavity_uy (MSE={MSE_uy})', 'cavity_uy_ref']
 
     plt.legend(all_files)
+    plt.ylabel("Normalized velocity")
+    plt.xlabel("Position along the x/y line")
     plt.savefig('validation/comparison.png')
     plt.show()
 
 
 def karman_vortex():
-    model_params = {
-        "iterations": 10000,
-        "size": 100,
-        "simulate_particles": False,
-        "map": "karmanvortex",
-        "reynolds": 1000.0,
-        "L_lb": 100,
-        "L_p": 1,
-        "nu_p": 1.48e-5,
-        "u_lb": 0.1
-    }
-
-    model = LBM(model_params)
-    model.render(kind="mag", show_realtime=True)
+    pass
 
 
 def experiment1():
@@ -153,39 +142,25 @@ def experiment1():
 
 
 def experiment2():
-    # model_params = {
-    #     "iterations": 1600,
-    #     "size": 100,
-    #     "simulate_particles": True,
-    #     "map": "concept4",
-    #     "L_p": 30,
-    #     "nu_p": 1.48e-5,
-    #     "u_p": 0.1,
-    #     "dt": 0.1
-    # }
-
     model_params = {
-        "iterations": 10000,
+        "iterations": 1600,
         "size": 100,
         "simulate_particles": False,
         "map": "concept4",
-        "reynolds": 10.0,
-        "L_lb": 100,
-        "L_p": 1,
+        "L_p": 30,
         "nu_p": 1.48e-5,
-        "u_lb": 0.05
+        "u_p": 0.1,
+        "dt": 0.1
     }
 
-    model = LBM(model_params)
-
-    model.render(kind="mag", vectors=True, show_realtime=True)
-
-    period_length = 800
-    open_window_frac = 1
+    period_length = 400
+    open_window_frac = 1/2
 
     def inlet_handler(model, it):
         if it % period_length < open_window_frac * period_length:
             # The windows are open, the inlet is acting like an actual inlet.
+            period = 40
+            model.u_lb *= (0.4 * np.sin(2 * np.pi * it/period) + 0.2)
             inlet_ux = model.u_lb
             inlet_uy = 0.0
             inlet_rho = np.ones_like(model.rho[model.inlet], dtype=float)
@@ -206,12 +181,12 @@ def experiment2():
         if it % period_length < open_window_frac * period_length:
             # The windows are open, the outlet is acting like an actual outlet.
             # Set the density at outlets
-            outlet_rho = 0.9
+            outlet_rho = 0.8
             outlet_ux = model.ux[model.outlet]
             outlet_uy = model.uy[model.outlet]
             model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
-                                                          outlet_rho,
-                                                          outlet_ux, outlet_uy)
+                                                        outlet_rho,
+                                                        outlet_ux, outlet_uy)
         else:
             model.ux[model.outlet] = 0
             model.uy[model.outlet] = 0
@@ -220,6 +195,80 @@ def experiment2():
             outlet_f = outlet_f[:, [0, 3, 4, 1, 2, 7, 8, 5, 6]]
             model.f[model.outlet, :] = outlet_f
 
+    model = LBM(model_params,
+                inlet_handler=inlet_handler,
+                outlet_handler=outlet_handler
+                )
+
+    model.render(kind="mag", vectors=True, save_file=True)
+
+
+
+
+def experiment3():
+    model_params = {
+        "iterations": 30,
+        "size": 100,
+        "simulate_particles": True,
+        "map": "window_open_close",
+        "L_p": 30,
+        "nu_p": 1.48e-5,
+        "u_p": 0.5,
+        "dt": 0.3,
+        # "u_lb": 0.1,
+
+    }
+
+    def inlet_handler(model, it):
+        # Set the velocity vector at inlets
+        period = 50
+        # model.u_lb *= (0.5 * np.sin(2 * np.pi * it/period) + 0.1)
+        model.u_lb *= (0.6 * np.sin(2 * np.pi * it/period) + 0.1)
+        model.u_lb += 0.1
+
+        inlet_ux = model.u_lb
+        inlet_uy = 0.0
+        inlet_rho = np.ones_like(model.rho[model.inlet], dtype=float)
+
+        model.f[model.inlet] = model.get_equilibrium(len(inlet_rho),
+                                                     inlet_rho,
+                                                     inlet_ux, inlet_uy)
+
+    def outlet_handler(model, it):
+        # change outlet to wall (close windows / air ventilation off)
+        if it % 10 == 0:
+            model.open_close = not model.open_close   
+        
+        if model.open_close:
+            model.wall += model.outlet 
+
+
+            model.outlet = np.zeros_like(model.outlet)
+            print("outlet --> wall")
+
+        # change back to outlet (open windows / air ventilation on)
+        else:
+            model.outlet = model.outlet_copy
+            print("wall --> outlet")
+
+        # Set the density at outlets
+        outlet_rho = 0.85
+
+        outlet_rho = model.rho[model.outlet]
+        outlet_ux = model.ux[model.outlet]
+        outlet_uy = model.uy[model.outlet]
+        model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
+                                                    outlet_rho,
+                                                    outlet_ux, outlet_uy)
+
+
+    model = LBM(model_params,
+                inlet_handler=inlet_handler,
+                outlet_handler=outlet_handler
+                )
+
+    model.render(kind="mag", vectors=True, save_file=True)
+
 
 if __name__ == '__main__':
     experiment_options = {
@@ -227,7 +276,8 @@ if __name__ == '__main__':
         "karman": karman_vortex,
         "validation": validation,
         "1": experiment1,
-        "2": experiment2
+        "2": experiment2,
+        "3": experiment3
     }
 
     if len(sys.argv) < 2:
