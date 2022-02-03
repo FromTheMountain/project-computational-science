@@ -253,8 +253,8 @@ class LBM:
         The default outlet handler for an LBM model.
         """
         # Set the density at outlets
-        outlet_rho = 0.9
-        # outlet_rho = model.rho[model.outlet]
+        # outlet_rho = 0.9
+        outlet_rho = model.rho[model.outlet]
         outlet_ux = model.ux[model.outlet]
         outlet_uy = model.uy[model.outlet]
         model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
@@ -299,6 +299,7 @@ class LBM:
         # Third layer: particle plots
         if self.simulate_particles:
             self.particle_locations = np.zeros((self.num_particles, 2), float)
+            self.particle_velocities = np.zeros((self.num_particles, 2), float)
             self.particle_plots = [plt.plot(0, 0, 'ro', markersize=2)[0]
                                    for i in range(self.num_particles)]
 
@@ -443,15 +444,21 @@ class LBM:
                 self.particles_exited.add(i)
                 self.particle_locations[i] = [0, 0]
             else:
-                dx, dy = ux_func([x, y])[0], uy_func([x, y])[0]
+                air_vx, air_vy = ux_func([x, y])[0], uy_func([x, y])[0]
+                part_vx, part_vy = self.particle_velocities[i]
 
-                dx, dy = self.map_scaling_factor * dx, \
-                    self.map_scaling_factor * dy
+                inertia = 0
+                new_part_vx = (air_vx * (1 - inertia) + part_vx * inertia)
+                new_part_vy = (air_vy * (1 - inertia) + part_vy * inertia)
+
+                dx, dy = self.map_scaling_factor * new_part_vx, \
+                    self.map_scaling_factor * new_part_vy
                 # Keep particles inside boundaries
                 new_x = min(max(0, x + dx), self.width - 1)
                 new_y = min(max(0, y + dy), self.height - 1)
 
                 self.particle_locations[i] = [new_x, new_y]
+                self.particle_velocities[i] = [new_part_vx, new_part_vy]
 
 
 if __name__ == '__main__':
