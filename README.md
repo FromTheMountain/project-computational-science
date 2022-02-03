@@ -65,9 +65,9 @@ Using the map editor we can create our own environment with the following map at
 
 ## Authors
 
-- Jeroen van den Berg
-- Erencan Tatar
-- Robbie Koevoets
+- [Jeroen van den Berg](jeroenvdb@live.nl)
+- [Erencan Tatar](erencantatar@gmail.com)
+- [Robbie Koevoets](robbie.koevoets@live.nl)
 
 
 ## Dependencies
