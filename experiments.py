@@ -1,6 +1,7 @@
 import sys
 import os
 import math
+from turtle import ycor
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -203,31 +204,76 @@ def experiment2():
     model.render(kind="mag", vectors=True, save_file=True)
 
 
+# TODO
+"""
+1. particle spwan rate as model_params
+2. way to run multi exp. with different windows open time
+    be able to show in plot when window open.
 
 
-def experiment3():
+"""
+
+
+
+def kaas():
     model_params = {
-        "iterations": 30,
+        "iterations": 3000,
         "size": 100,
         "simulate_particles": True,
-        "map": "window_open_close",
-        "L_p": 30,
+        "map": "concept6",
+        "L_p": 1,
         "nu_p": 1.48e-5,
-        "u_p": 0.5,
+        "u_p": 0.1,
         "dt": 0.3,
         # "u_lb": 0.1,
 
+    }
+
+    model = LBM(model_params,
+                # inlet_handler=inlet_handler,
+                # outlet_handler=outlet_handler
+                )
+
+    x = list((np.argwhere(model.susceptible)[:,1]))[::4]
+
+    y = list((np.argwhere(model.susceptible)[:,0]))[::4]
+    print(x)
+    print(y)
+  
+def experiment3():
+    # model_params = {
+    #     "iterations": 40,
+    #     "size": 100,
+    #     "simulate_particles": True,
+    #     "map": "concept6",
+    #     "L_p": 1,
+    #     "nu_p": 1.48e-5,
+    #     "u_p": 0.2,
+    #     "dt": 0.3,
+    # }
+
+    model_params = {
+        "iterations": 1000,
+        "size": 100,
+        "simulate_particles": True,
+        "map": "concept6",
+        "reynolds": 300.0,
+        "L_lb": 100,
+        "L_p": 1,
+        "nu_p": 1.48e-5,
+        "u_lb": 0.5,
+        "window_open_ratio":0.2,
     }
 
     def inlet_handler(model, it):
         # Set the velocity vector at inlets
         period = 50
         # model.u_lb *= (0.5 * np.sin(2 * np.pi * it/period) + 0.1)
-        model.u_lb *= (0.6 * np.sin(2 * np.pi * it/period) + 0.1)
-        model.u_lb += 0.1
+        model.u_lb *= (0.5 * np.sin(2 * np.pi * it/period) + 0.1)
+        model.u_lb += 0.2
 
         inlet_ux = model.u_lb
-        inlet_uy = 0.0
+        inlet_uy = 0.15 * model.u_lb
         inlet_rho = np.ones_like(model.rho[model.inlet], dtype=float)
 
         model.f[model.inlet] = model.get_equilibrium(len(inlet_rho),
@@ -236,8 +282,13 @@ def experiment3():
 
     def outlet_handler(model, it):
         # change outlet to wall (close windows / air ventilation off)
-        if it % 10 == 0:
-            model.open_close = not model.open_close
+
+        # 5000 iter
+        period_length = model.iters / 4
+
+        from scipy.signal import square
+
+        model.open_close = bool(square(2 * np.pi * (it / period_length), (model.window_ratio)) + 1)
 
         if model.open_close:
             model.wall += model.outlet # Turn outlets into walls
@@ -253,23 +304,34 @@ def experiment3():
 
             print("wall --> outlet")
 
-        # Set the density at outlets
-        outlet_rho = 0.85
+        outlet_rho = 0.85 + 0.1 * np.sin(it/10)
+                
+        print("ouutlet rho", outlet_rho)
 
-        outlet_rho = model.rho[model.outlet]
+        # outlet_rho = model.rho[model.outlet]
         outlet_ux = model.ux[model.outlet]
         outlet_uy = model.uy[model.outlet]
         model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
                                                     outlet_rho,
                                                     outlet_ux, outlet_uy)
 
+    a = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 
-    model = LBM(model_params,
-                inlet_handler=inlet_handler,
-                outlet_handler=outlet_handler
-                )
+    for i, window_ratio in enumerate(a):
 
-    model.render(kind="mag", vectors=True, save_file=True)
+        if not os.path.exists(('results/{}'.format(str(window_ratio)))):
+            os.mkdir('results/{}'.format(str(window_ratio)))
+
+        print("Iteration {}, window_ratio {}".format(i, window_ratio))
+
+        model_params['window_open_ratio'] = window_ratio
+
+        model = LBM(model_params,
+                    inlet_handler=inlet_handler,
+                    outlet_handler=outlet_handler
+                    )
+
+        model.render(kind="mag", vectors=True, save_file=True)
 
 
 if __name__ == '__main__':
@@ -279,7 +341,8 @@ if __name__ == '__main__':
         "validation": validation,
         "1": experiment1,
         "2": experiment2,
-        "3": experiment3
+        "3": experiment3,
+        "kaas": kaas, 
     }
 
     if len(sys.argv) < 2:
