@@ -9,7 +9,8 @@ This LBM code includes:
 - D2Q9 lattice
 - BGK collision
 - Bounce back
-
+- Aerosol tracking
+- Infection simulation
 
 # Run simulation
 
