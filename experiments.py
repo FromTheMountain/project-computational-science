@@ -237,18 +237,20 @@ def experiment3():
     def outlet_handler(model, it):
         # change outlet to wall (close windows / air ventilation off)
         if it % 10 == 0:
-            model.open_close = not model.open_close   
-        
+            model.open_close = not model.open_close
+
         if model.open_close:
-            model.wall += model.outlet 
+            model.wall += model.outlet # Turn outlets into walls
 
+            model.outlet = np.zeros_like(model.outlet) # Remove outlets
 
-            model.outlet = np.zeros_like(model.outlet)
             print("outlet --> wall")
 
         # change back to outlet (open windows / air ventilation on)
         else:
-            model.outlet = model.outlet_copy
+            model.outlet = np.copy(model.outlet_copy) # Restore outlets
+            model.wall = np.copy(model.wall_copy) # Restore walls
+
             print("wall --> outlet")
 
         # Set the density at outlets

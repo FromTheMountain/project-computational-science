@@ -27,7 +27,9 @@ class LBM:
         self.map_scaling_factor = 1.0
         self.wall, self.inlet, self.outlet, self.infected, self.susceptible = \
             self.read_map_from_file('./maps/' + params['map'])
-        self.outlet_copy = self.outlet
+        self.outlet_copy = np.copy(self.outlet)
+        self.wall_copy = np.copy(self.wall)
+
         self.iters = params['iterations']
 
         assert self.wall.shape == self.inlet.shape == self.outlet.shape
@@ -178,9 +180,6 @@ class LBM:
         """Calculate the equilibrium values of the model and return them.
         """
     def get_equilibrium(self, n, rho, ux, uy):
-        """
-        Calculate the equalibrium distribution for the BGK operator.
-        """
         udotu = ux * ux + uy * uy
 
         udotc = np.zeros((n, Q), dtype=float)
@@ -360,7 +359,6 @@ class LBM:
             infection_rate = np.cumsum(self.infections, axis=1)
             removed_rate = np.cumsum(self.removed)
 
-            print(infection_rate)
             ax.plot(infection_rate.T)
             # ax.legend(susceptible_centroids)
             fig.savefig('infection_rate.png')
@@ -387,29 +385,12 @@ class LBM:
 
             self.vector_plot.set_UVC(u, v)
 
-       
         # Fourth layer: map plot
-        if self.open_close:
-            map_data = (WALL * self.wall + INLET * self.inlet +
-                        OUTLET * self.outlet + INFECTED * self.infected +
-                        SUSCEPTIBLE * self.susceptible)
-        else:
-            map_data = (WALL * self.wall + INLET * self.inlet +
-                        OUTLET * self.outlet + INFECTED * self.infected +
-                        SUSCEPTIBLE * self.susceptible)
-                        
-        #     clr = ["white", "blue", "red", "purple", "pink", "darkgreen"]
-
-        # else:
-        #     map_data = (WALL * self.wall + INLET * self.inlet +
-        #             OUTLET * self.outlet + INFECTED * self.infected +
-        #             SUSCEPTIBLE * self.susceptible)
-
-        #     clr = ["white", "blue", "red", "purple", "yellow", "darkgreen"]
+        map_data = (WALL * self.wall + INLET * self.inlet +
+                    OUTLET * self.outlet + INFECTED * self.infected +
+                    SUSCEPTIBLE * self.susceptible)
 
         self.map_plot.set_data(map_data.T)
-        # cmap = colors.ListedColormap(clr)
-        # self.map_plot.set_cmap(cmap)
 
         # Update particle locations and plots
         if self.simulate_particles:
