@@ -256,7 +256,8 @@ class LBM:
         The default outlet handler for an LBM model.
         """
         # Set the density at outlets
-        outlet_rho = model.rho[model.outlet]
+        outlet_rho = 0.9
+        # outlet_rho = model.rho[model.outlet]
         outlet_ux = model.ux[model.outlet]
         outlet_uy = model.uy[model.outlet]
         model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
@@ -268,7 +269,8 @@ class LBM:
         Vectors: Whether to draw vector arrows on the visualisation.
         kind: What to visualise, options are: mag, density
         """
-    def render(self, kind="density", vectors=False, save_file=None):
+    def render(self, kind="density", vectors=False, show_realtime=False,
+               save_file=False):
         """
         Render the values collected by the model with matplotlib. Argument
         "kind" should be of value "density" or "mag"
@@ -279,15 +281,17 @@ class LBM:
         # First layer: fluid plot
         self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
                                               dtype=float),
+                                     origin="lower",
                                      vmin=0.0, vmax=self.u_lb,
                                      cmap=plt.get_cmap("jet"))
         cbar = plt.colorbar(self.fluid_plot)
         cbar.set_label("Speed (units/steps)", rotation=270, labelpad=15)
 
-        # adding numbers at susceptible_centroids
-        for idx, val in enumerate(susceptible_centroids):
-            x, y = val
-            plt.text(x, y, str(idx), fontsize=10, color='white')
+        if np.any(self.susceptible):
+            # adding numbers at susceptible_centroids
+            for idx, val in enumerate(susceptible_centroids):
+                x, y = val
+                plt.text(x, y, str(idx), fontsize=10, color='white')
 
         # Second layer: vector plot
         if vectors:
@@ -297,7 +301,7 @@ class LBM:
             v = self.uy[x, y]
 
             # Set scale to 0.5 for lid driven cavity, 4 for Karman vortex
-            self.vector_plot = plt.quiver(x, y, u, v, scale=4)
+            self.vector_plot = plt.quiver(x, y, u, v, scale=0.8)
 
         # Third layer: particle plots
         if self.simulate_particles:
@@ -314,7 +318,7 @@ class LBM:
         cmap = colors.ListedColormap(clr)
 
         self.map_plot = plt.imshow(map_data.T, alpha=0.6, origin="lower",
-                                   cmap=cmap)
+                                   vmin=0, vmax=len(clr), cmap=cmap)
 
         patches = [mpatches.Patch(color=c, label=name) for c, name in
                    zip(clr[1:],
@@ -337,7 +341,9 @@ class LBM:
                              init_func=lambda: self.animate(0, ax, kind,
                                                             vectors))
 
-        if save_file:
+        if show_realtime:
+            plt.show()
+        elif save_file:
             anim.save("simulation.html", writer="html")
         else:
             for i in range(self.iters):
