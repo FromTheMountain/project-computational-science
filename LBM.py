@@ -27,6 +27,7 @@ class LBM:
         self.map_scaling_factor = 1.0
         self.wall, self.inlet, self.outlet, self.infected, self.susceptible = \
             self.read_map_from_file('./maps/' + params['map'])
+        self.outlet_copy = self.outlet
         self.iters = params['iterations']
 
         assert self.wall.shape == self.inlet.shape == self.outlet.shape
@@ -36,8 +37,8 @@ class LBM:
 
         # every 20 it spawn particles
         if self.simulate_particles:
-            self.spawn_rate = 20            # every x iterations
-            self.spawn_amount_at_rate = 5   # x particles
+            self.spawn_rate = 10            # every x iterations
+            self.spawn_amount_at_rate = 10    # x particles
 
             self.num_particles = (self.iters // self.spawn_rate) * \
                 self.spawn_amount_at_rate
@@ -76,6 +77,8 @@ class LBM:
                                       self.rho.flatten(), self.ux.flatten(),
                                       self.uy.flatten()).reshape(
             (self.width, self.height, Q))
+
+        self.open_close = True
 
         """Initialise the model based on a couple of physical values.
         """
@@ -256,8 +259,7 @@ class LBM:
         The default outlet handler for an LBM model.
         """
         # Set the density at outlets
-        outlet_rho = 0.9
-        # outlet_rho = model.rho[model.outlet]
+        outlet_rho = model.rho[model.outlet]
         outlet_ux = model.ux[model.outlet]
         outlet_uy = model.uy[model.outlet]
         model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
@@ -269,8 +271,7 @@ class LBM:
         Vectors: Whether to draw vector arrows on the visualisation.
         kind: What to visualise, options are: mag, density
         """
-    def render(self, kind="density", vectors=False, show_realtime=False,
-               save_file=False):
+    def render(self, kind="density", vectors=False, save_file=None):
         """
         Render the values collected by the model with matplotlib. Argument
         "kind" should be of value "density" or "mag"
@@ -281,9 +282,8 @@ class LBM:
         # First layer: fluid plot
         self.fluid_plot = plt.imshow(np.zeros((self.width, self.height),
                                               dtype=float),
-                                     origin="lower",
                                      vmin=0.0, vmax=self.u_lb,
-                                     cmap=plt.get_cmap("jet"))
+                                     cmap=plt.get_cmap("RdBu_r"))
         cbar = plt.colorbar(self.fluid_plot)
         cbar.set_label("Speed (units/steps)", rotation=270, labelpad=15)
 
@@ -301,7 +301,7 @@ class LBM:
             v = self.uy[x, y]
 
             # Set scale to 0.5 for lid driven cavity, 4 for Karman vortex
-            self.vector_plot = plt.quiver(x, y, u, v, scale=0.8)
+            self.vector_plot = plt.quiver(x, y, u, v, scale=4)
 
         # Third layer: particle plots
         if self.simulate_particles:
@@ -310,15 +310,22 @@ class LBM:
                                    for i in range(self.num_particles)]
 
         # Fourth layer: map plot
-        map_data = (WALL * self.wall + INLET * self.inlet +
-                    OUTLET * self.outlet + INFECTED * self.infected +
-                    SUSCEPTIBLE * self.susceptible)
+        if self.open_close:
+            map_data = (WALL * self.wall + INLET * self.inlet +
+                        OUTLET * self.outlet + INFECTED * self.infected +
+                        SUSCEPTIBLE * self.susceptible)
+        else:
+            map_data = (WALL * self.wall + INLET * self.inlet +
+                        OUTLET * self.outlet + INFECTED * self.infected +
+                        SUSCEPTIBLE * self.susceptible)
 
-        clr = ["lightgreen", "blue", "red", "purple", "yellow", "darkgreen"]
+
+        clr = ["white", "blue", "red", "purple", "yellow", "darkgreen"]
         cmap = colors.ListedColormap(clr)
 
         self.map_plot = plt.imshow(map_data.T, alpha=0.6, origin="lower",
-                                   vmin=0, vmax=len(clr), cmap=cmap)
+                                     vmin=0, vmax=len(clr),
+                                   cmap=cmap)
 
         patches = [mpatches.Patch(color=c, label=name) for c, name in
                    zip(clr[1:],
@@ -341,9 +348,7 @@ class LBM:
                              init_func=lambda: self.animate(0, ax, kind,
                                                             vectors))
 
-        if show_realtime:
-            plt.show()
-        elif save_file:
+        if save_file:
             anim.save("simulation.html", writer="html")
         else:
             for i in range(self.iters):
@@ -355,12 +360,9 @@ class LBM:
             infection_rate = np.cumsum(self.infections, axis=1)
             removed_rate = np.cumsum(self.removed)
 
+            print(infection_rate)
             ax.plot(infection_rate.T)
-            # TODO: Add spawn rate to title and parameters
-            ax.set_title(f"Infection rate in a building")
-            ax.set_xlabel("Iteration")
-            ax.set_ylabel("Infected count")
-            ax.legend(range(len(susceptible_centroids)))
+            # ax.legend(susceptible_centroids)
             fig.savefig('infection_rate.png')
             ax.plot(removed_rate)
             fig.savefig('removed_rate.png')
@@ -384,6 +386,30 @@ class LBM:
             u, v = self.ux[x, y], self.uy[x, y]
 
             self.vector_plot.set_UVC(u, v)
+
+       
+        # Fourth layer: map plot
+        if self.open_close:
+            map_data = (WALL * self.wall + INLET * self.inlet +
+                        OUTLET * self.outlet + INFECTED * self.infected +
+                        SUSCEPTIBLE * self.susceptible)
+        else:
+            map_data = (WALL * self.wall + INLET * self.inlet +
+                        OUTLET * self.outlet + INFECTED * self.infected +
+                        SUSCEPTIBLE * self.susceptible)
+                        
+        #     clr = ["white", "blue", "red", "purple", "pink", "darkgreen"]
+
+        # else:
+        #     map_data = (WALL * self.wall + INLET * self.inlet +
+        #             OUTLET * self.outlet + INFECTED * self.infected +
+        #             SUSCEPTIBLE * self.susceptible)
+
+        #     clr = ["white", "blue", "red", "purple", "yellow", "darkgreen"]
+
+        self.map_plot.set_data(map_data.T)
+        # cmap = colors.ListedColormap(clr)
+        # self.map_plot.set_cmap(cmap)
 
         # Update particle locations and plots
         if self.simulate_particles:
@@ -445,7 +471,7 @@ class LBM:
                 dist_2 = np.sum((nodes - node)**2, axis=1)
                 closest = np.argmin(dist_2)
 
-                self.infections[closest][it] += 1
+                self.infections[closest][i] += 1
 
                 self.particles_exited.add(i)
                 self.particle_locations[i] = [0, 0]
@@ -467,15 +493,15 @@ class LBM:
 
 if __name__ == '__main__':
     model_params = {
-        "iterations": 10000,
+        "iterations": 1000,
         "size": 100,
-        "simulate_particles": True,
+        "simulate_particles": False,
         "map": "concept4",
-        "reynolds": 100,
-        "L_lb": 200,
-        "L_p": 1,
+        "L_lb": 100,
+        "L_p": 10,
         "nu_p": 1.48e-5,
-        "u_lb": 0.4
+        "u_p": 0.1,
+        "dt": 2e-4
     }
 
     model = LBM(model_params)
