@@ -153,17 +153,6 @@ def experiment1():
 
 
 def experiment2():
-    # model_params = {
-    #     "iterations": 1600,
-    #     "size": 100,
-    #     "simulate_particles": True,
-    #     "map": "concept4",
-    #     "L_p": 30,
-    #     "nu_p": 1.48e-5,
-    #     "u_p": 0.1,
-    #     "dt": 0.1
-    # }
-
     model_params = {
         "iterations": 10000,
         "size": 100,

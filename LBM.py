@@ -175,9 +175,6 @@ class LBM:
         """Calculate the equilibrium values of the model and return them.
         """
     def get_equilibrium(self, n, rho, ux, uy):
-        """
-        Calculate the equalibrium distribution for the BGK operator.
-        """
         udotu = ux * ux + uy * uy
 
         udotc = np.zeros((n, Q), dtype=float)
@@ -271,10 +268,6 @@ class LBM:
         """
     def render(self, kind="density", vectors=False, show_realtime=False,
                save_file=False):
-        """
-        Render the values collected by the model with matplotlib. Argument
-        "kind" should be of value "density" or "mag"
-        """
         # Initialize plots
         fig, ax = plt.subplots()
 
@@ -399,10 +392,6 @@ class LBM:
         fluid.
         """
     def update_particles(self, it):
-        """
-        Tracks the motions of particles through the airflow.
-        """
-
         if it % self.spawn_rate == 0:
             for _ in range(self.spawn_amount_at_rate):
                 # Spawn a new particle
