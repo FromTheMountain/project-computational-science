@@ -239,21 +239,10 @@ def kaas():
     y = list((np.argwhere(model.susceptible)[:,0]))[::4]
     print(x)
     print(y)
-  
-def experiment3():
-    # model_params = {
-    #     "iterations": 40,
-    #     "size": 100,
-    #     "simulate_particles": True,
-    #     "map": "concept6",
-    #     "L_p": 1,
-    #     "nu_p": 1.48e-5,
-    #     "u_p": 0.2,
-    #     "dt": 0.3,
-    # }
 
+def experiment3():
     model_params = {
-        "iterations": 1000,
+        "iterations": 2000,
         "size": 100,
         "simulate_particles": True,
         "map": "concept6",
@@ -305,7 +294,7 @@ def experiment3():
             print("wall --> outlet")
 
         outlet_rho = 0.85 + 0.1 * np.sin(it/10)
-                
+
         print("ouutlet rho", outlet_rho)
 
         # outlet_rho = model.rho[model.outlet]
@@ -342,7 +331,7 @@ if __name__ == '__main__':
         "1": experiment1,
         "2": experiment2,
         "3": experiment3,
-        "kaas": kaas, 
+        "kaas": kaas,
     }
 
     if len(sys.argv) < 2:

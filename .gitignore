@@ -8,5 +8,7 @@ cavity_vx
 
 *.html
 *.png
+*.npy
+*.zip
 
 .vscode/
