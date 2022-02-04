@@ -153,17 +153,6 @@ def experiment1():
 
 
 def experiment2():
-    # model_params = {
-    #     "iterations": 1600,
-    #     "size": 100,
-    #     "simulate_particles": True,
-    #     "map": "concept4",
-    #     "L_p": 30,
-    #     "nu_p": 1.48e-5,
-    #     "u_p": 0.1,
-    #     "dt": 0.1
-    # }
-
     model_params = {
         "iterations": 10000,
         "size": 100,
@@ -221,13 +210,39 @@ def experiment2():
             model.f[model.outlet, :] = outlet_f
 
 
+def experiment_realistic():
+    model_params = {
+        "iterations": 100,
+        "size": 100,
+        "simulate_particles": True,
+        "map": "realistic_rooms",
+        "reynolds": 1000.0,
+        "L_lb": 100,
+        "L_p": 1,
+        "nu_p": 1.48e-5,
+        "u_lb": 0.2
+    }
+
+    def inlet_handler(model, it):
+        inlet_ux = np.abs(model.u_lb * np.sin(2 * np.pi * (it / model_params['iterations'])))
+        inlet_uy = 0.0
+
+        inlet_rho = np.ones_like(model.rho[model.inlet], dtype=float)
+        model.f[model.inlet] = model.get_equilibrium(
+            len(inlet_rho), model.rho[model.inlet], inlet_ux, inlet_uy)
+
+    model = LBM(model_params, inlet_handler=inlet_handler)
+    model.render(kind="mag", show_realtime=False, save_file=True)
+
+
 if __name__ == '__main__':
     experiment_options = {
         "cavity": lid_driven_cavity,
         "karman": karman_vortex,
         "validation": validation,
         "1": experiment1,
-        "2": experiment2
+        "2": experiment2,
+        "realistic": experiment_realistic
     }
 
     if len(sys.argv) < 2:

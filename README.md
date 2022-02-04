@@ -9,19 +9,21 @@ This LBM code includes:
 - D2Q9 lattice
 - BGK collision
 - Bounce back
-
+- Aerosol tracking
+- Infection simulation
 
 # Run simulation
 
 Note: Some simulations can take a while to run. Also be warned that when using many iterations it may use a decent amount of disk space. About 0.1MB per iteration.
 
 Using `experiment.py` in the repository we can simulate the following experiments:
-- Lid driven cavity
-- Karman vortex
+- Lid driven cavity `cavity`
+- Karman vortex `karman`
+- Validation using lid driven cavity `validation`
 - Own experiment, with our own map created in `maps/concept.txt` using `mapeditor.py`. Setting up behaviour for the inlets and outlets in the function "own_experiment" in `experiment.py` will result in different simulations.
 - ...
 
-Specify in `experiment.py` the initial conditions. After the simualtion is complete a folder `/frames` folder along with a .html can be used to view the 2d animation.
+Specify in `experiment.py` the initial conditions by changing `model_params`. After the simulation is complete a folder `/frames` folder along with a .html can be used to view the 2d animation.
 
 
 
@@ -63,9 +65,9 @@ Using the map editor we can create our own environment with the following map at
 
 ## Authors
 
-- Jeroen van den Berg
-- Erencan Tatar
-- Robbie Koevoets
+- [Jeroen van den Berg (jeroenvdb@live.nl)](mailto:jeroenvdb@live.nl)
+- [Erencan Tatar (erencantatar@gmail.com)](mailto:erencantatar@gmail.com)
+- [Robbie Koevoets (robbie.koevoets@live.nl)](mailto:robbie.koevoets@live.nl)
 
 
 ## Dependencies

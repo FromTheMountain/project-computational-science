@@ -37,7 +37,7 @@ class LBM:
         # every 20 it spawn particles
         if self.simulate_particles:
             self.spawn_rate = 20            # every x iterations
-            self.spawn_amount_at_rate = 1   # x particles
+            self.spawn_amount_at_rate = 5   # x particles
 
             self.num_particles = (self.iters // self.spawn_rate) * \
                 self.spawn_amount_at_rate
@@ -175,9 +175,6 @@ class LBM:
         """Calculate the equilibrium values of the model and return them.
         """
     def get_equilibrium(self, n, rho, ux, uy):
-        """
-        Calculate the equalibrium distribution for the BGK operator.
-        """
         udotu = ux * ux + uy * uy
 
         udotc = np.zeros((n, Q), dtype=float)
@@ -256,8 +253,8 @@ class LBM:
         The default outlet handler for an LBM model.
         """
         # Set the density at outlets
-        outlet_rho = 0.9
-        # outlet_rho = model.rho[model.outlet]
+        # outlet_rho = 0.9
+        outlet_rho = model.rho[model.outlet]
         outlet_ux = model.ux[model.outlet]
         outlet_uy = model.uy[model.outlet]
         model.f[model.outlet] = model.get_equilibrium(len(outlet_ux),
@@ -271,10 +268,6 @@ class LBM:
         """
     def render(self, kind="density", vectors=False, show_realtime=False,
                save_file=False):
-        """
-        Render the values collected by the model with matplotlib. Argument
-        "kind" should be of value "density" or "mag"
-        """
         # Initialize plots
         fig, ax = plt.subplots()
 
@@ -306,6 +299,7 @@ class LBM:
         # Third layer: particle plots
         if self.simulate_particles:
             self.particle_locations = np.zeros((self.num_particles, 2), float)
+            self.particle_velocities = np.zeros((self.num_particles, 2), float)
             self.particle_plots = [plt.plot(0, 0, 'ro', markersize=2)[0]
                                    for i in range(self.num_particles)]
 
@@ -356,7 +350,11 @@ class LBM:
             removed_rate = np.cumsum(self.removed)
 
             ax.plot(infection_rate.T)
-            # ax.legend(susceptible_centroids)
+            # TODO: Add spawn rate to title and parameters
+            ax.set_title(f"Infection rate in a building")
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("Infected count")
+            ax.legend(range(len(susceptible_centroids)))
             fig.savefig('infection_rate.png')
             ax.plot(removed_rate)
             fig.savefig('removed_rate.png')
@@ -395,10 +393,6 @@ class LBM:
         fluid.
         """
     def update_particles(self, it):
-        """
-        Tracks the motions of particles through the airflow.
-        """
-
         if it % self.spawn_rate == 0:
             for _ in range(self.spawn_amount_at_rate):
                 # Spawn a new particle
@@ -441,7 +435,7 @@ class LBM:
                 dist_2 = np.sum((nodes - node)**2, axis=1)
                 closest = np.argmin(dist_2)
 
-                self.infections[closest][i] += 1
+                self.infections[closest][it] += 1
 
                 self.particles_exited.add(i)
                 self.particle_locations[i] = [0, 0]
@@ -450,28 +444,34 @@ class LBM:
                 self.particles_exited.add(i)
                 self.particle_locations[i] = [0, 0]
             else:
-                dx, dy = ux_func([x, y])[0], uy_func([x, y])[0]
+                air_vx, air_vy = ux_func([x, y])[0], uy_func([x, y])[0]
+                part_vx, part_vy = self.particle_velocities[i]
 
-                dx, dy = self.map_scaling_factor * dx, \
-                    self.map_scaling_factor * dy
+                inertia = 0
+                new_part_vx = (air_vx * (1 - inertia) + part_vx * inertia)
+                new_part_vy = (air_vy * (1 - inertia) + part_vy * inertia)
+
+                dx, dy = self.map_scaling_factor * new_part_vx, \
+                    self.map_scaling_factor * new_part_vy
                 # Keep particles inside boundaries
                 new_x = min(max(0, x + dx), self.width - 1)
                 new_y = min(max(0, y + dy), self.height - 1)
 
                 self.particle_locations[i] = [new_x, new_y]
+                self.particle_velocities[i] = [new_part_vx, new_part_vy]
 
 
 if __name__ == '__main__':
     model_params = {
-        "iterations": 1000,
+        "iterations": 10000,
         "size": 100,
-        "simulate_particles": False,
+        "simulate_particles": True,
         "map": "concept4",
-        "L_lb": 100,
-        "L_p": 10,
+        "reynolds": 100,
+        "L_lb": 200,
+        "L_p": 1,
         "nu_p": 1.48e-5,
-        "u_p": 0.1,
-        "dt": 2e-4
+        "u_lb": 0.4
     }
 
     model = LBM(model_params)
